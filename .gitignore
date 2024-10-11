@@ -1,0 +1,6 @@
+raredisease_results
+work
+.nextflow.log*
+.nextflow
+.envrc
+samplesheet.csv
