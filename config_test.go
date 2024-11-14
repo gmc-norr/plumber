@@ -67,14 +67,23 @@ func TestLocalNfCoreConfig(t *testing.T) {
 	testcases := []struct {
 		name      string
 		repo      string
+		version   string
 		pipeline  string
 		localPath string
 	}{
 		{
 			name:      "local raredisease",
 			repo:      filepath.Join(localRepo, "local-config"),
+			version:   "main",
 			pipeline:  "nf-core/raredisease",
 			localPath: filepath.Join(configHome, "nf-core-raredisease"),
+		},
+		{
+			name:      "local raredisease",
+			repo:      filepath.Join(localRepo, "local-config-2"),
+			version:   "b7a8f674f3bf07951270315adb51c23d2bd4d734",
+			pipeline:  "nf-core/raredisease",
+			localPath: filepath.Join(configHome, "nf-core-raredisease-b7a8f67"),
 		},
 	}
 
@@ -86,7 +95,7 @@ func TestLocalNfCoreConfig(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			config := NewConfig(c.repo, "main", c.localPath)
+			config := NewConfig(c.repo, c.version, c.localPath)
 			p, _ := ParsePipelineName(c.pipeline)
 			nfCoreConfig, err := NewNextflowConfig(p, config)
 			if err != nil {
