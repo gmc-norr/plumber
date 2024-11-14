@@ -31,11 +31,6 @@ func initConfig() {
 	viper.MustBindEnv("loglevel", "PLUMBER_LOGLEVEL")
 	viper.MustBindEnv("github-token", "PLUMBER_GITHUB_TOKEN")
 
-	if err := initConfigDir(); err != nil {
-		slog.Error("error initialising config directory", "error", err.Error())
-		os.Exit(1)
-	}
-
 	if err := logger(); err != nil {
 		slog.Error(err.Error())
 		os.Exit(1)
@@ -75,25 +70,12 @@ var (
 	}
 )
 
-func initConfigDir() error {
-	configDir := viper.GetString("config-home")
-	if _, err := os.Stat(configDir); err != nil {
-		if os.IsNotExist(err) {
-			if err := os.MkdirAll(configDir, 0o755); err != nil {
-				return err
-			}
-		} else {
-			return err
-		}
-	}
-	return nil
-}
-
 func init() {
 	cobra.OnInitialize(initConfig)
 
 	rootCmd.AddCommand(config.ConfigCmd)
 	rootCmd.AddCommand(nextflow.NextflowCmd)
+	rootCmd.AddCommand(initCmd)
 
 	rootCmd.PersistentFlags().StringVar(&configRepo, "config-repo", "gmc-norr/config-files", "URL to config file git repository")
 	rootCmd.PersistentFlags().StringVar(&configRev, "config-version", "main", "Commitish representing the version of the config file repository to use")
