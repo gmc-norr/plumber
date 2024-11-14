@@ -2,6 +2,7 @@ package plumber
 
 import (
 	"fmt"
+	"os/exec"
 	"path/filepath"
 	"testing"
 )
@@ -36,7 +37,7 @@ func TestConfigCheckout(t *testing.T) {
 
 	for _, c := range testcases {
 		t.Run(c.name, func(t *testing.T) {
-			config := NewConfig("gmc-norr/config-files", c.revision, c.localPath)
+			config := NewConfig("https://github.com/gmc-norr/config-files", c.revision, c.localPath)
 			if config.Exists() {
 				t.Fatal("local path should not exist")
 			}
@@ -55,6 +56,43 @@ func TestConfigCheckout(t *testing.T) {
 			if !config.Exists() {
 				t.Fatal("local path should exist")
 			}
+		})
+	}
+}
+
+func TestLocalNfCoreConfig(t *testing.T) {
+	configHome := t.TempDir()
+	localRepo := t.TempDir()
+
+	testcases := []struct {
+		name      string
+		repo      string
+		pipeline  string
+		localPath string
+	}{
+		{
+			name:      "local raredisease",
+			repo:      filepath.Join(localRepo, "local-config"),
+			pipeline:  "nf-core/raredisease",
+			localPath: filepath.Join(configHome, "nf-core-raredisease"),
+		},
+	}
+
+	for _, c := range testcases {
+		t.Run(c.name, func(t *testing.T) {
+			// Imagine that this is something that has been done already
+			cmd := exec.Command("git", "clone", "https://github.com/gmc-norr/config-files", c.repo)
+			if err := cmd.Run(); err != nil {
+				t.Fatal(err)
+			}
+
+			config := NewConfig(c.repo, "main", c.localPath)
+			p, _ := ParsePipelineName(c.pipeline)
+			nfCoreConfig, err := NewNextflowConfig(p, config)
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Log(nfCoreConfig)
 		})
 	}
 }
@@ -87,7 +125,7 @@ func TestNfCoreConfig(t *testing.T) {
 	for _, c := range testcases {
 		t.Run(c.name, func(t *testing.T) {
 			configPath := filepath.Join(d, c.localPath)
-			config := NewConfig("gmc-norr/config-files", c.revision, configPath)
+			config := NewConfig("https://github.com/gmc-norr/config-files", c.revision, configPath)
 			pipeline, err := ParsePipelineName(c.pipeline)
 			if err != nil {
 				t.Fatal(err)
