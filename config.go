@@ -14,7 +14,7 @@ import (
 // Config defines the config files for a pipeline.
 type Config struct {
 	// The repository that should be used for the config files.
-	// This should be on the form "<org>/<repo>"
+	// This should either be the url to a git repo, or a path
 	Repo string
 	// Revision should be a tag, branch or commit that should be checked out.
 	Revision string
@@ -137,7 +137,7 @@ func (c Config) Clone() error {
 		"clone",
 		"-b",
 		c.Revision,
-		fmt.Sprintf("https://github.com/%s", c.Repo),
+		c.Repo,
 		c.LocalPath,
 	}
 	cmd := exec.Command("git", argv...)

@@ -93,6 +93,16 @@ func TestLocalNfCoreConfig(t *testing.T) {
 				t.Fatal(err)
 			}
 			t.Log(nfCoreConfig)
+
+			expectedConfig := filepath.Join(c.localPath, "nextflow", p.Repo, fmt.Sprintf("%s.config", p.Pipeline))
+			if nfCoreConfig.ConfigFile != expectedConfig {
+				t.Fatalf("expected config file %s, got %s", expectedConfig, nfCoreConfig.ConfigFile)
+			}
+
+			expectedParams := filepath.Join(c.localPath, "nextflow", p.Repo, "params.yaml")
+			if nfCoreConfig.ParamsFile != expectedParams {
+				t.Fatalf("expected params file %s, got %s", expectedParams, nfCoreConfig.ParamsFile)
+			}
 		})
 	}
 }
