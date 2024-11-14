@@ -19,6 +19,7 @@ func initConfig() {
 		home, err := os.UserHomeDir()
 		if err != nil {
 			slog.Error("unable to find user's home directory")
+			os.Exit(1)
 		}
 		configHome = filepath.Join(home, ".config")
 	}
@@ -37,6 +38,7 @@ func initConfig() {
 
 	if err := logger(); err != nil {
 		slog.Error(err.Error())
+		os.Exit(1)
 	}
 }
 
