@@ -19,26 +19,23 @@ var (
 		Args:  cobra.NoArgs,
 		Run: func(cmd *cobra.Command, args []string) {
 			configDir := viper.GetString("config-home")
-			if fetchName != "all" {
-				path := filepath.Join(configDir, fetchName)
-				c, err := plumber.ConfigFromPath(path)
-				if err != nil {
-					slog.Error(err.Error())
-				}
-				slog.Info("fetching updates", "name", fetchName)
-				if err := c.Fetch(); err != nil {
-					slog.Error(err.Error())
-				}
-			}
 			didError := false
+			foundAtLeastOne := false
+			count := 0
 			files, err := os.ReadDir(configDir)
 			if err != nil {
 				slog.Error(err.Error())
+				os.Exit(1)
 			}
 			for _, f := range files {
 				if !f.IsDir() {
 					continue
 				}
+				count++
+				if fetchName != "all" && f.Name() != fetchName {
+					continue
+				}
+				foundAtLeastOne = true
 				c, err := plumber.ConfigFromPath(filepath.Join(configDir, f.Name()))
 				if err != nil {
 					didError = true
@@ -52,6 +49,10 @@ var (
 				}
 			}
 			if didError {
+				os.Exit(1)
+			}
+			if count > 0 && !foundAtLeastOne {
+				slog.Error("config not found", "name", fetchName)
 				os.Exit(1)
 			}
 		},
