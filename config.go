@@ -1,6 +1,7 @@
 package plumber
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/url"
@@ -124,7 +125,7 @@ func (c Config) Checkout(revision string) error {
 	slog.Debug("running command", "cmd", cmd.String(), "workdir", cmd.Dir)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf(strings.TrimSpace(string(output)))
+		return errors.New(strings.TrimSpace(string(output)))
 	}
 	return nil
 }

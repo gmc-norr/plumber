@@ -57,7 +57,6 @@ func TestConfigCheckout(t *testing.T) {
 			}
 		})
 	}
-
 }
 
 func TestNfCoreConfig(t *testing.T) {
