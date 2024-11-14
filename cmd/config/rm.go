@@ -15,7 +15,7 @@ var rmCmd = &cobra.Command{
 	Short: "Remove a config",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		configDir := viper.GetString("config_home")
+		configDir := viper.GetString("config-home")
 		path := filepath.Join(configDir, args[0])
 		_, err := plumber.ConfigFromPath(path)
 		if err != nil {

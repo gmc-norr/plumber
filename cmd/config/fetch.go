@@ -18,7 +18,7 @@ var (
 		Short: "Fetch updates from the remote",
 		Args:  cobra.NoArgs,
 		Run: func(cmd *cobra.Command, args []string) {
-			configDir := viper.GetString("config_home")
+			configDir := viper.GetString("config-home")
 			if fetchName != "all" {
 				path := filepath.Join(configDir, fetchName)
 				c, err := plumber.ConfigFromPath(path)

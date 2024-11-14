@@ -13,22 +13,22 @@ import (
 )
 
 var (
-	configRepo string
-	configRev  string
-	pullName   string
+	pullName string
 
 	pullCmd = &cobra.Command{
 		Use:   "pull",
 		Short: "Download config files",
 		Args:  cobra.NoArgs,
 		Run: func(cmd *cobra.Command, args []string) {
-			configDir := viper.GetString("config_home")
+			configRepo := viper.GetString("config-repo")
+			configVersion := viper.GetString("config-version")
+			configDir := viper.GetString("config-home")
 			if pullName == "" {
-				pullName = fmt.Sprintf("%s-%s", strings.Split(configRepo, "/")[1], configRev)
+				pullName = fmt.Sprintf("%s-%s", strings.Split(configRepo, "/")[1], configVersion)
 			}
 			path := filepath.Join(configDir, pullName)
-			slog.Debug("flags", "pullRepo", configRepo, "pullRev", configRev)
-			config := plumber.NewConfig(configRepo, configRev, path)
+			slog.Debug("flags", "pullRepo", configRepo, "pullRev", configVersion)
+			config := plumber.NewConfig(configRepo, configVersion, path)
 			if config.Exists() {
 				slog.Warn("config already exists", "path", path)
 				return
@@ -42,7 +42,5 @@ var (
 )
 
 func init() {
-	pullCmd.Flags().StringVar(&configRepo, "repository", "gmc-norr/config-files", "repository to pull on the form \"<org>/<repo>\"")
-	pullCmd.Flags().StringVarP(&configRev, "revision", "r", "main", "tag/branch/commit to check out")
 	pullCmd.Flags().StringVarP(&pullName, "name", "n", "", "local config name to use")
 }

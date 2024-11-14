@@ -15,7 +15,7 @@ var mvCmd = &cobra.Command{
 	Short: "Move a config file directory",
 	Args:  cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		configDir := viper.GetString("config_home")
+		configDir := viper.GetString("config-home")
 		from := filepath.Join(configDir, args[0])
 		to := filepath.Join(configDir, args[1])
 

@@ -16,7 +16,7 @@ var listCmd = &cobra.Command{
 	Short: "List existing config directories",
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
-		configDir := viper.GetString("config_home")
+		configDir := viper.GetString("config-home")
 		fmt.Printf("# config home directory: %s\n", configDir)
 		files, err := os.ReadDir(configDir)
 		if err != nil {

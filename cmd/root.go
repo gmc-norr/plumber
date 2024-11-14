@@ -23,13 +23,17 @@ func initConfig() {
 		configHome = filepath.Join(home, ".config")
 	}
 
-	viper.SetDefault("config_home", filepath.Join(configHome, "plumber"))
+	viper.SetDefault("config-home", filepath.Join(configHome, "plumber"))
 	viper.SetDefault("loglevel", "WARN")
 
-	viper.SetEnvPrefix("plumber")
-	viper.MustBindEnv("config_home")
-	viper.MustBindEnv("loglevel")
-	viper.MustBindEnv("github_token")
+	viper.MustBindEnv("config-home", "PLUMBER_CONFIG_HOME")
+	viper.MustBindEnv("loglevel", "PLUMBER_LOGLEVEL")
+	viper.MustBindEnv("github-token", "PLUMBER_GITHUB_TOKEN")
+
+	if err := initConfigDir(); err != nil {
+		slog.Error("error initialising config directory", "error", err.Error())
+		os.Exit(1)
+	}
 
 	if err := logger(); err != nil {
 		slog.Error(err.Error())
@@ -58,14 +62,19 @@ func logger() error {
 	return nil
 }
 
-var rootCmd = &cobra.Command{
-	Use:     "plumber",
-	Short:   "Run pipelines",
-	Version: "0.1.0", // x-release-please-version
-}
+var (
+	configRepo string
+	configRev  string
+
+	rootCmd = &cobra.Command{
+		Use:     "plumber",
+		Short:   "Run pipelines",
+		Version: "0.1.0", // x-release-please-version
+	}
+)
 
 func initConfigDir() error {
-	configDir := viper.GetString("config_home")
+	configDir := viper.GetString("config-home")
 	if _, err := os.Stat(configDir); err != nil {
 		if os.IsNotExist(err) {
 			if err := os.MkdirAll(configDir, 0o755); err != nil {
@@ -81,11 +90,23 @@ func initConfigDir() error {
 func init() {
 	cobra.OnInitialize(initConfig)
 
-	if err := initConfigDir(); err != nil {
-		slog.Error("error initialising config directory", "error", err.Error())
-		os.Exit(1)
-	}
-
 	rootCmd.AddCommand(config.ConfigCmd)
 	rootCmd.AddCommand(nextflow.NextflowCmd)
+
+	rootCmd.PersistentFlags().StringVar(&configRepo, "config-repo", "gmc-norr/config-files", "URL to config file git repository")
+	rootCmd.PersistentFlags().StringVar(&configRev, "config-version", "main", "Commitish representing the version of the config file repository to use")
+	rootCmd.PersistentFlags().StringP("log-level", "l", "WARN", "log level")
+
+	if err := viper.BindPFlag("loglevel", rootCmd.PersistentFlags().Lookup("log-level")); err != nil {
+		slog.Error(err.Error())
+		os.Exit(1)
+	}
+	if err := viper.BindPFlag("config-repo", rootCmd.PersistentFlags().Lookup("config-repo")); err != nil {
+		slog.Error(err.Error())
+		os.Exit(1)
+	}
+	if err := viper.BindPFlag("config-version", rootCmd.PersistentFlags().Lookup("config-version")); err != nil {
+		slog.Error(err.Error())
+		os.Exit(1)
+	}
 }

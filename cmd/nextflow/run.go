@@ -32,7 +32,7 @@ var (
 			return nil
 		},
 		Run: func(cmd *cobra.Command, args []string) {
-			configDir := viper.GetString("config_home")
+			configDir := viper.GetString("config-home")
 			pipeline, err := plumber.ParsePipelineName(args[0])
 			pipeline.Revision = nextflowRev
 			if err != nil {
