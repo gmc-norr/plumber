@@ -12,6 +12,7 @@ import (
 )
 
 var (
+	configVersion   string
 	pipelineVersion string
 	nextflowConfig  string
 	nextflowProfile string
@@ -32,7 +33,6 @@ var (
 		Run: func(cmd *cobra.Command, args []string) {
 			configDir := viper.GetString("config-home")
 			configRepo := viper.GetString("config-repo")
-			configVersion := viper.GetString("config-version")
 			pipeline, err := plumber.ParsePipelineName(args[0])
 			pipeline.Revision = pipelineVersion
 			if err != nil {
@@ -49,6 +49,10 @@ var (
 			path := filepath.Join(configDir, nextflowConfig)
 			c, err := plumber.ConfigFromPath(path)
 			if err != nil {
+				if configVersion == "" {
+					slog.Error("no config found, and no version given")
+					os.Exit(1)
+				}
 				c = plumber.NewConfig(configRepo, configVersion, path)
 				if err := c.Clone(); err != nil {
 					slog.Error("error cloning config", "repo", c.Repo, "path", c.LocalPath, "error", err.Error())
@@ -57,8 +61,8 @@ var (
 			} else {
 				slog.Info("using existing config", "path", c.LocalPath, "version", c.Version)
 			}
-			if c.Version != configVersion {
-				slog.Info("checking out config revision", "version", configVersion)
+			if configVersion != "" && c.Version != configVersion {
+				slog.Info("checking out config version", "version", configVersion)
 				if err := c.Checkout(configVersion); err != nil {
 					slog.Error("error checking out config files", "repo", c.Repo, "version", configVersion, "path", c.LocalPath, "error", err.Error())
 					os.Exit(1)
@@ -85,6 +89,7 @@ var (
 )
 
 func init() {
+	runCmd.Flags().StringVarP(&configVersion, "config-version", "", "", "tag/branch/commit of the config files to use")
 	runCmd.Flags().StringVarP(&pipelineVersion, "version", "", "main", "tag/branch/commit of the pipeline to run")
 	runCmd.Flags().StringVarP(&nextflowConfig, "config", "c", "", "name of config to use (defult: \"<org>-<pipeline>-<revision>\")")
 	runCmd.Flags().StringVarP(&nextflowWorkdir, "workdir", "d", ".", "directory where the pipeline should be executed")
