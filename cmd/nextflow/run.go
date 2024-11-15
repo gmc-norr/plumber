@@ -55,16 +55,16 @@ var (
 					os.Exit(1)
 				}
 			} else {
-				slog.Info("using existing config", "path", c.LocalPath, "revision", c.Revision)
+				slog.Info("using existing config", "path", c.LocalPath, "revision", c.Version)
 			}
-			if c.Revision != nextflowConfigRev {
+			if c.Version != nextflowConfigRev {
 				slog.Info("checking out config revision", "revision", nextflowConfigRev)
 				if err := c.Checkout(nextflowConfigRev); err != nil {
 					slog.Error("error checking out config files", "repo", c.Repo, "revision", nextflowConfigRev, "path", c.LocalPath, "error", err.Error())
 					os.Exit(1)
 				}
 			}
-			slog.Debug("nextflow config", "path", c.LocalPath, "revision", c.Revision)
+			slog.Debug("nextflow config", "path", c.LocalPath, "revision", c.Version)
 
 			nfConfig, err := plumber.NewNextflowConfig(pipeline, c)
 			if err != nil {

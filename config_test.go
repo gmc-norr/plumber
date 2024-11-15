@@ -2,7 +2,9 @@ package plumber
 
 import (
 	"fmt"
+	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -29,14 +31,14 @@ func TestConfigCheckout(t *testing.T) {
 		{
 			name:      "revision with spaces",
 			revision:  "this branch surely doesn't exist",
-			localPath: d + "/config-files-checkout2",
+			localPath: d + "/config-files-checkout3",
 			gitFail:   true,
 		},
 	}
 
 	for _, c := range testcases {
 		t.Run(c.name, func(t *testing.T) {
-			config := NewConfig("gmc-norr/config-files", c.revision, c.localPath)
+			config := NewConfig("https://github.com/gmc-norr/config-files", c.revision, c.localPath)
 			if config.Exists() {
 				t.Fatal("local path should not exist")
 			}
@@ -54,6 +56,70 @@ func TestConfigCheckout(t *testing.T) {
 
 			if !config.Exists() {
 				t.Fatal("local path should exist")
+			}
+		})
+	}
+}
+
+func TestLocalNfCoreConfig(t *testing.T) {
+	configHome := t.TempDir()
+	localRepo := t.TempDir()
+
+	testcases := []struct {
+		name      string
+		repo      string
+		version   string
+		pipeline  string
+		localPath string
+	}{
+		{
+			name:      "local raredisease",
+			repo:      filepath.Join(localRepo, "local-config"),
+			version:   "main",
+			pipeline:  "nf-core/raredisease",
+			localPath: filepath.Join(configHome, "nf-core-raredisease"),
+		},
+		{
+			name:      "local raredisease",
+			repo:      filepath.Join(localRepo, "local-config-2"),
+			version:   "b7a8f674f3bf07951270315adb51c23d2bd4d734",
+			pipeline:  "nf-core/raredisease",
+			localPath: filepath.Join(configHome, "nf-core-raredisease-b7a8f67"),
+		},
+	}
+
+	for _, c := range testcases {
+		t.Run(c.name, func(t *testing.T) {
+			// Imagine that this is something that has been done already
+			cmd := exec.Command("git", "clone", "https://github.com/gmc-norr/config-files", c.repo)
+			if err := cmd.Run(); err != nil {
+				t.Fatal(err)
+			}
+
+			config := NewConfig(c.repo, c.version, c.localPath)
+			p, _ := ParsePipelineName(c.pipeline)
+			nfCoreConfig, err := NewNextflowConfig(p, config)
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Log(nfCoreConfig)
+
+			expectedConfig := filepath.Join(c.localPath, "nextflow", p.Repo, fmt.Sprintf("%s.config", p.Pipeline))
+			if nfCoreConfig.ConfigFile != expectedConfig {
+				t.Fatalf("expected config file %s, got %s", expectedConfig, nfCoreConfig.ConfigFile)
+			}
+
+			expectedParams := filepath.Join(c.localPath, "nextflow", p.Repo, "params.yaml")
+			if nfCoreConfig.ParamsFile != expectedParams {
+				t.Fatalf("expected params file %s, got %s", expectedParams, nfCoreConfig.ParamsFile)
+			}
+
+			config, err = ConfigFromPath(c.localPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !strings.HasPrefix(c.version, config.Version) {
+				t.Errorf("expected config version to have prefix %s, but version was %s", config.Version, c.version)
 			}
 		})
 	}
@@ -87,7 +153,7 @@ func TestNfCoreConfig(t *testing.T) {
 	for _, c := range testcases {
 		t.Run(c.name, func(t *testing.T) {
 			configPath := filepath.Join(d, c.localPath)
-			config := NewConfig("gmc-norr/config-files", c.revision, configPath)
+			config := NewConfig("https://github.com/gmc-norr/config-files", c.revision, configPath)
 			pipeline, err := ParsePipelineName(c.pipeline)
 			if err != nil {
 				t.Fatal(err)
