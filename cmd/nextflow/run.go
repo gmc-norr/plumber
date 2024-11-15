@@ -18,12 +18,16 @@ var (
 	nextflowConfig  string
 	nextflowProfile string
 	nextflowWorkdir string
+	nextflowArgs    []string
 
 	runCmd = &cobra.Command{
 		Use:   "run PIPELINE",
 		Short: "Run a Nextflow pipeline",
+		Long:  `Run a Nextflow pipeline with a configuration managed by plumber. Any arguments passed after -- will be passed directly to Nextflow.`,
 		Args: func(cmd *cobra.Command, args []string) error {
-			if err := cobra.ExactArgs(1)(cmd, args); err != nil {
+			plumberArgs := args[:cmd.ArgsLenAtDash()]
+			nextflowArgs = args[cmd.ArgsLenAtDash():]
+			if err := cobra.ExactArgs(1)(cmd, plumberArgs); err != nil {
 				return err
 			}
 			if !plumber.ValidPipelineName(args[0]) {
@@ -87,7 +91,7 @@ var (
 			nfPipeline := plumber.NewNextflowPipeline(nfConfig)
 			nfPipeline.SetEnv("NEXTFLOW_CONFIG_HOME", filepath.Join(nfConfig.Config.LocalPath, "nextflow"))
 			nfPipeline.Workdir = nextflowWorkdir
-			if err := nfPipeline.Run(); err != nil {
+			if err := nfPipeline.Run(nextflowArgs); err != nil {
 				slog.Error("error running pipeline", "error", err.Error())
 				os.Exit(1)
 			}
