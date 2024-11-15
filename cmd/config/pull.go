@@ -1,11 +1,9 @@
 package config
 
 import (
-	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/gmc-norr/plumber"
 	"github.com/spf13/cobra"
@@ -24,7 +22,8 @@ var (
 			configVersion := viper.GetString("config-version")
 			configDir := viper.GetString("config-home")
 			if pullName == "" {
-				pullName = fmt.Sprintf("%s-%s", strings.Split(configRepo, "/")[1], configVersion)
+				slog.Error("no local name provided")
+				os.Exit(1)
 			}
 			path := filepath.Join(configDir, pullName)
 			slog.Debug("flags", "pullRepo", configRepo, "pullRev", configVersion)
