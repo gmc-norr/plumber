@@ -48,7 +48,7 @@ func ConfigFromPath(path string) (Config, error) {
 	if err != nil {
 		return c, err
 	}
-	c.Repo = strings.TrimLeft(url.Path, "/")
+	c.Repo = url.String()
 	return c, nil
 }
 
