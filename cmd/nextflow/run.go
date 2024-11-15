@@ -12,6 +12,7 @@ import (
 )
 
 var (
+	configRepo      string
 	configVersion   string
 	pipelineVersion string
 	nextflowConfig  string
@@ -32,7 +33,6 @@ var (
 		},
 		Run: func(cmd *cobra.Command, args []string) {
 			configDir := viper.GetString("config-home")
-			configRepo := viper.GetString("config-repo")
 			pipeline, err := plumber.ParsePipelineName(args[0])
 			pipeline.Revision = pipelineVersion
 			if err != nil {
@@ -49,6 +49,10 @@ var (
 			path := filepath.Join(configDir, nextflowConfig)
 			c, err := plumber.ConfigFromPath(path)
 			if err != nil {
+				if configRepo == "" {
+					slog.Error("no config found, and no repo given")
+					os.Exit(1)
+				}
 				if configVersion == "" {
 					slog.Error("no config found, and no version given")
 					os.Exit(1)
@@ -61,7 +65,7 @@ var (
 			} else {
 				slog.Info("using existing config", "path", c.LocalPath, "version", c.Version)
 			}
-			if c.Repo != configRepo {
+			if configRepo != "" && c.Repo != configRepo {
 				slog.Warn("--config-repo doesn't match with loaded config, versions might mismatch", "config-repo", configRepo, "config", c.Repo)
 			}
 			if configVersion != "" && c.Version != configVersion {
@@ -92,6 +96,7 @@ var (
 )
 
 func init() {
+	runCmd.Flags().StringVarP(&configRepo, "config-repo", "", "", "URL or path to the config file git repository")
 	runCmd.Flags().StringVarP(&configVersion, "config-version", "", "", "tag/branch/commit of the config files to use")
 	runCmd.Flags().StringVarP(&pipelineVersion, "version", "", "main", "tag/branch/commit of the pipeline to run")
 	runCmd.Flags().StringVarP(&nextflowConfig, "config", "c", "", "name of config to use (defult: \"<org>-<pipeline>-<revision>\")")
