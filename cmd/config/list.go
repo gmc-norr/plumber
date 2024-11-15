@@ -33,7 +33,7 @@ var listCmd = &cobra.Command{
 				didError = true
 				slog.Error("error initialising config", "config", f.Name(), "error", err.Error())
 			} else {
-				fmt.Printf("%s (%s@%s)\n", f.Name(), c.Repo, c.Revision)
+				fmt.Printf("%s (%s@%s)\n", f.Name(), c.Repo, c.Version)
 			}
 		}
 		if didError {

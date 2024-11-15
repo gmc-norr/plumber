@@ -30,7 +30,7 @@ func TestConfigCheckout(t *testing.T) {
 		{
 			name:      "revision with spaces",
 			revision:  "this branch surely doesn't exist",
-			localPath: d + "/config-files-checkout2",
+			localPath: d + "/config-files-checkout3",
 			gitFail:   true,
 		},
 	}

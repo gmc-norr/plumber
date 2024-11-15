@@ -16,17 +16,17 @@ type Config struct {
 	// The repository that should be used for the config files.
 	// This should either be the url to a git repo, or a path
 	Repo string
-	// Revision should be a tag, branch or commit that should be checked out.
-	Revision string
+	// Version should be a tag, branch or commit that should be checked out.
+	Version string
 	// The local path where the repo should be checked out.
 	LocalPath string
 }
 
 // Create a new pipeline config.
-func NewConfig(repo, revision, path string) Config {
+func NewConfig(repo, branch, path string) Config {
 	c := Config{
 		Repo:      repo,
-		Revision:  revision,
+		Version:   branch,
 		LocalPath: path,
 	}
 	return c
@@ -40,7 +40,7 @@ func ConfigFromPath(path string) (Config, error) {
 	if !c.Exists() {
 		return c, fmt.Errorf("directory not found: %s", path)
 	}
-	c.Revision, err = c.Head()
+	c.Version, err = c.Head()
 	if err != nil {
 		return c, err
 	}
@@ -135,8 +135,6 @@ func (c Config) Clone() error {
 	slog.Debug("cloning config file repo")
 	argv := []string{
 		"clone",
-		"-b",
-		c.Revision,
 		c.Repo,
 		c.LocalPath,
 	}
@@ -146,7 +144,7 @@ func (c Config) Clone() error {
 	if err != nil {
 		return fmt.Errorf("%s: %s", err, string(output))
 	}
-	return nil
+	return c.Checkout(c.Version)
 }
 
 // NextflowConfig represents a config for a Nextflow pipeline.
