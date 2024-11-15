@@ -120,6 +120,9 @@ func (c Config) Checkout(revision string) error {
 	if !c.Exists() {
 		return fmt.Errorf("directory not found: %s", c.LocalPath)
 	}
+	if err := c.Fetch(); err != nil {
+		return err
+	}
 	cmd := exec.Command("git", "checkout", revision)
 	cmd.Dir = c.LocalPath
 	slog.Debug("running command", "cmd", cmd.String(), "workdir", cmd.Dir)
