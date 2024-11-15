@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -111,6 +112,14 @@ func TestLocalNfCoreConfig(t *testing.T) {
 			expectedParams := filepath.Join(c.localPath, "nextflow", p.Repo, "params.yaml")
 			if nfCoreConfig.ParamsFile != expectedParams {
 				t.Fatalf("expected params file %s, got %s", expectedParams, nfCoreConfig.ParamsFile)
+			}
+
+			config, err = ConfigFromPath(c.localPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !strings.HasPrefix(c.version, config.Version) {
+				t.Errorf("expected config version to have prefix %s, but version was %s", config.Version, c.version)
 			}
 		})
 	}
