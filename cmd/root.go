@@ -77,7 +77,7 @@ func init() {
 	rootCmd.AddCommand(nextflow.NextflowCmd)
 	rootCmd.AddCommand(initCmd)
 
-	rootCmd.PersistentFlags().StringVar(&configRepo, "config-repo", "https://github.com/gmc-norr/config-files", "URL to config file git repository")
+	rootCmd.PersistentFlags().StringVar(&configRepo, "config-repo", "https://github.com/gmc-norr/config-files", "URL or path to the config file git repository")
 	rootCmd.PersistentFlags().StringVar(&configRev, "config-version", "main", "Commitish representing the version of the config file repository to use")
 	rootCmd.PersistentFlags().StringP("log-level", "l", "WARN", "log level")
 

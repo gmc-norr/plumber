@@ -138,7 +138,7 @@ func (p *NextflowPipeline) SetEnv(key, value string) {
 }
 
 // Run a nextflow pipeline.
-func (p *NextflowPipeline) Run() error {
+func (p *NextflowPipeline) Run(extraArgs []string) error {
 	slog.Info("starting pipeline execution")
 	args := []string{
 		"run",
@@ -149,6 +149,7 @@ func (p *NextflowPipeline) Run() error {
 		"-c",
 		p.ConfigFile,
 	}
+	args = append(args, extraArgs...)
 	if p.ParamsFile != "" {
 		args = append(args, "-params-file")
 		args = append(args, p.ParamsFile)

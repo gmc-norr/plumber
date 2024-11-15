@@ -38,6 +38,7 @@ func TestConfigCheckout(t *testing.T) {
 
 	for _, c := range testcases {
 		t.Run(c.name, func(t *testing.T) {
+			repo := "https://github.com/gmc-norr/config-files"
 			config := NewConfig("https://github.com/gmc-norr/config-files", c.revision, c.localPath)
 			if config.Exists() {
 				t.Fatal("local path should not exist")
@@ -56,6 +57,14 @@ func TestConfigCheckout(t *testing.T) {
 
 			if !config.Exists() {
 				t.Fatal("local path should exist")
+			}
+
+			config, err := ConfigFromPath(c.localPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if config.Repo != repo {
+				t.Errorf("expected config repo %s, got %s", repo, config.Repo)
 			}
 		})
 	}
@@ -120,6 +129,10 @@ func TestLocalNfCoreConfig(t *testing.T) {
 			}
 			if !strings.HasPrefix(c.version, config.Version) {
 				t.Errorf("expected config version to have prefix %s, but version was %s", config.Version, c.version)
+			}
+
+			if config.Repo != c.repo {
+				t.Errorf("expected config repo to be %s, got %s", c.repo, config.Repo)
 			}
 		})
 	}
