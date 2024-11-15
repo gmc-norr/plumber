@@ -101,7 +101,7 @@ func (c Config) Head() (string, error) {
 	}
 	hash := strings.TrimSpace(string(b))
 
-	return hash, cmd.Wait()
+	return hash, nil
 }
 
 // Remote returns the remote repository URL for a config.
