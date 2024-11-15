@@ -61,6 +61,9 @@ var (
 			} else {
 				slog.Info("using existing config", "path", c.LocalPath, "version", c.Version)
 			}
+			if c.Repo != configRepo {
+				slog.Warn("--config-repo doesn't match with loaded config, versions might mismatch", "config-repo", configRepo, "config", c.Repo)
+			}
 			if configVersion != "" && c.Version != configVersion {
 				slog.Info("checking out config version", "version", configVersion)
 				if err := c.Checkout(configVersion); err != nil {
