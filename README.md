@@ -1,5 +1,10 @@
 # plumber
 
+![go build and test](https://github.com/gmc-norr/plumber/actions/workflows/go.yml/badge.svg)
+![golangci-lint](https://github.com/gmc-norr/plumber/actions/workflows/golangci-lint.yaml/badge.svg)
+
+---
+
 Plumber is a wrapper for Snakemake and nf-core pipelines that are run at GMC Norr.
 
 ## Requirements
