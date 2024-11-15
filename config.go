@@ -72,7 +72,7 @@ func (c Config) Fetch() error {
 
 	cmd := exec.Command("git", "fetch")
 	cmd.Dir = c.LocalPath
-	slog.Debug("running command", "cmd", cmd.String, "workdir", cmd.Dir)
+	slog.Debug("running command", "cmd", cmd.String(), "workdir", cmd.Dir)
 	return cmd.Run()
 }
 
