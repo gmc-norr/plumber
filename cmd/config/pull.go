@@ -11,29 +11,32 @@ import (
 )
 
 var (
-	pullName string
+	downloadName  string
+	downloadForce bool
 
-	pullCmd = &cobra.Command{
-		Use:   "pull",
-		Short: "Download config files",
-		Args:  cobra.NoArgs,
+	downloadCmd = &cobra.Command{
+		Use:   "download PIPELINE VERSION",
+		Short: "Download config files for a specific version of a pipeline",
+		Args: func(cmd *cobra.Command, args []string) error {
+			return cobra.ExactArgs(2)(cmd, args)
+		},
 		Run: func(cmd *cobra.Command, args []string) {
 			configRepo := viper.GetString("config-repo")
 			configVersion := viper.GetString("config-version")
 			configDir := viper.GetString("config-home")
-			if pullName == "" {
+			if downloadName == "" {
 				slog.Error("no local name provided")
 				os.Exit(1)
 			}
-			path := filepath.Join(configDir, pullName)
-			slog.Debug("flags", "pullRepo", configRepo, "pullRev", configVersion)
+			path := filepath.Join(configDir, downloadName)
+			slog.Debug("flags", "repo", configRepo, "version", configVersion)
 			config := plumber.NewConfig(configRepo, configVersion, path)
-			if config.Exists() {
-				slog.Warn("config already exists", "path", path)
-				return
+			if config.Exists() && !downloadForce {
+				slog.Error("config already exists", "path", path)
+				os.Exit(1)
 			}
-			if err := config.Clone(); err != nil {
-				slog.Error("error cloning config", "error", err.Error())
+			if err := config.Download(args[0], args[1]); err != nil {
+				slog.Error("error downloading config", "error", err.Error())
 				os.Exit(1)
 			}
 		},
@@ -41,5 +44,6 @@ var (
 )
 
 func init() {
-	pullCmd.Flags().StringVarP(&pullName, "name", "n", "", "local config name to use")
+	downloadCmd.Flags().StringVarP(&downloadName, "name", "n", "", "local config name to use")
+	downloadCmd.Flags().BoolVarP(&downloadForce, "force", "f", false, "local config name to use")
 }
