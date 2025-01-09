@@ -43,6 +43,12 @@ type PlumberFile struct {
 	Pipelines []PipelineConfigMetadata `yaml:"pipelines"`
 }
 
+func NewPlumberFile() PlumberFile {
+	return PlumberFile{
+		Version: 1,
+	}
+}
+
 type PipelineConfigMetadata struct {
 	Name        string   `yaml:"name"`
 	Engine      string   `yaml:"engine"`
@@ -53,7 +59,26 @@ type PipelineConfigMetadata struct {
 	Assets      []string `yaml:"assets"`
 }
 
+func (p *PipelineConfigMetadata) AddProfile(path string) {
+	p.Profiles = append(p.Profiles, path)
+}
+
+func (p *PipelineConfigMetadata) AddConfig(path string) {
+	p.ConfigFiles = append(p.ConfigFiles, path)
+}
+
+func (p *PipelineConfigMetadata) AddParam(path string) {
+	p.ParamFiles = append(p.ParamFiles, path)
+}
+
+func (p *PipelineConfigMetadata) AddAssets(path string) {
+	p.Assets = append(p.Assets, path)
+}
+
 func (p PlumberFile) Validate() error {
+	if p.Version != 1 {
+		return fmt.Errorf("%w: plumber file version 1 is the only supported version", PlumberFileFormatError)
+	}
 	for i, p := range p.Pipelines {
 		if p.Name == "" {
 			return fmt.Errorf("%w: invalid name for pipeline %d: %q", PlumberFileFormatError, i, p.Name)
@@ -64,11 +89,34 @@ func (p PlumberFile) Validate() error {
 		if p.Version == "" {
 			return fmt.Errorf("%w: invalid version for pipeline %d: %q", PlumberFileFormatError, i, p.Version)
 		}
+		for _, path := range p.ParamFiles {
+			if !filepath.IsLocal(path) {
+				return fmt.Errorf("%w: param file paths must be relative", PlumberFileFormatError)
+			}
+		}
+		for _, path := range p.ConfigFiles {
+			if !filepath.IsLocal(path) {
+				return fmt.Errorf("%w: config file paths must be relative", PlumberFileFormatError)
+			}
+		}
+		for _, path := range p.Assets {
+			if !filepath.IsLocal(path) {
+				return fmt.Errorf("%w: asset paths must be relative", PlumberFileFormatError)
+			}
+		}
+		for _, path := range p.Profiles {
+			if !filepath.IsLocal(path) {
+				return fmt.Errorf("%w: profile paths must be relative", PlumberFileFormatError)
+			}
+		}
 	}
 	return nil
 }
 
 func (p PlumberFile) Write(dir string) error {
+	if err := p.Validate(); err != nil {
+		return err
+	}
 	b, err := yaml.Marshal(p)
 	if err != nil {
 		return err
@@ -282,10 +330,16 @@ func (c Config) Download(pipeline, version string) (err error) {
 		}
 	}()
 
+	pipelineConfig := PipelineConfigMetadata{}
+	pipelineConfig.Name = pipelineData.Name
+	pipelineConfig.Engine = pipelineData.Engine
+	pipelineConfig.Version = pipelineData.Version
+
 	for _, filename := range pipelineData.ConfigFiles {
 		slog.Debug("config file", "path", filename)
 		source := filepath.Join(tmpDest, filename)
 		target := filepath.Join(c.LocalPath, "config", filepath.Base(filename))
+		pipelineConfig.AddConfig(filepath.Join("config", filepath.Base(filename)))
 		slog.Debug("copying config file", "source", source, "target", target)
 		if err := copy(source, target); err != nil {
 			return err
@@ -296,6 +350,7 @@ func (c Config) Download(pipeline, version string) (err error) {
 		slog.Debug("param file", "path", filename)
 		source := filepath.Join(tmpDest, filename)
 		target := filepath.Join(c.LocalPath, "param", filepath.Base(filename))
+		pipelineConfig.AddParam(filepath.Join("param", filepath.Base(filename)))
 		slog.Debug("copying param file", "source", source, "target", target)
 		if err := copy(source, target); err != nil {
 			return err
@@ -306,6 +361,7 @@ func (c Config) Download(pipeline, version string) (err error) {
 		slog.Debug("asset", "path", filename)
 		source := filepath.Join(tmpDest, filename)
 		target := filepath.Join(c.LocalPath, "assets", filepath.Base(filename))
+		pipelineConfig.AddAssets(filepath.Join("assets", filepath.Base(filename)))
 		slog.Debug("copying assets", "source", source, "target", target)
 		if err := copy(source, target); err != nil {
 			return err
@@ -316,16 +372,17 @@ func (c Config) Download(pipeline, version string) (err error) {
 		slog.Debug("profile", "path", filename)
 		source := filepath.Join(tmpDest, filename)
 		target := filepath.Join(c.LocalPath, "profile", filepath.Base(filename))
+		pipelineConfig.AddProfile(filepath.Join("profile", filepath.Base(filename)))
 		slog.Debug("copying profile", "source", source, "target", target)
 		if err := copy(source, target); err != nil {
 			return err
 		}
 	}
 
+	pipelinePlumberFile := NewPlumberFile()
+	pipelinePlumberFile.Pipelines = append(pipelinePlumberFile.Pipelines, pipelineConfig)
 	slog.Debug("writing plumber file", "dir", c.LocalPath)
-	pipelinePf := PlumberFile{}
-	pipelinePf.Pipelines = append(pipelinePf.Pipelines, *pipelineData)
-	if err := pipelinePf.Write(c.LocalPath); err != nil {
+	if err := pipelinePlumberFile.Write(c.LocalPath); err != nil {
 		return err
 	}
 
