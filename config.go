@@ -3,13 +3,27 @@ package plumber
 import (
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"gopkg.in/yaml.v3"
 )
+
+var PlumberFileFormatError = errors.New("invalid formatting of plumber file")
+
+type PlumberFileNotFound struct {
+	Path          string
+	OriginalError error
+}
+
+func (e PlumberFileNotFound) Error() string {
+	return fmt.Sprintf("plumber file not found: %s", e.Path)
+}
 
 // Config defines the config files for a pipeline.
 type Config struct {
@@ -20,6 +34,71 @@ type Config struct {
 	Version string
 	// The local path where the repo should be checked out.
 	LocalPath string
+}
+
+const PlumberFileName = "plumber.yaml"
+
+type PlumberFile struct {
+	Version   int                      `yaml:"version"`
+	Pipelines []PipelineConfigMetadata `yaml:"pipelines"`
+}
+
+type PipelineConfigMetadata struct {
+	Name        string   `yaml:"name"`
+	Engine      string   `yaml:"engine"`
+	Version     string   `yaml:"version"`
+	Profiles    []string `yaml:"profiles"`
+	ConfigFiles []string `yaml:"config_files"`
+	ParamFiles  []string `yaml:"param_files"`
+	Assets      []string `yaml:"assets"`
+}
+
+func (p PlumberFile) Validate() error {
+	for i, p := range p.Pipelines {
+		if p.Name == "" {
+			return fmt.Errorf("%w: invalid name for pipeline %d: %q", PlumberFileFormatError, i, p.Name)
+		}
+		if p.Engine == "" {
+			return fmt.Errorf("%w: invalid engine for pipeline %d: %q", PlumberFileFormatError, i, p.Engine)
+		}
+		if p.Version == "" {
+			return fmt.Errorf("%w: invalid version for pipeline %d: %q", PlumberFileFormatError, i, p.Version)
+		}
+	}
+	return nil
+}
+
+func (p PlumberFile) Write(dir string) error {
+	b, err := yaml.Marshal(p)
+	if err != nil {
+		return err
+	}
+	filename := filepath.Join(dir, PlumberFileName)
+	return os.WriteFile(filename, b, 0o666)
+}
+
+func ReadPlumberFile(directory string) (PlumberFile, error) {
+	pf := PlumberFile{}
+	path := filepath.Join(directory, PlumberFileName)
+	f, err := os.Open(path)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return pf, PlumberFileNotFound{
+				Path:          path,
+				OriginalError: err,
+			}
+		}
+	}
+	defer f.Close()
+	b, err := io.ReadAll(f)
+	if err != nil {
+		return pf, err
+	}
+	err = yaml.Unmarshal(b, &pf)
+	if err != nil {
+		return pf, PlumberFileFormatError
+	}
+	return pf, pf.Validate()
 }
 
 // Create a new pipeline config.
@@ -39,6 +118,10 @@ func ConfigFromPath(path string) (Config, error) {
 	}
 	if !c.Exists() {
 		return c, fmt.Errorf("directory not found: %s", path)
+	}
+	_, err = ReadPlumberFile(c.LocalPath)
+	if err != nil {
+		return c, err
 	}
 	c.Version, err = c.Head()
 	if err != nil {
@@ -131,6 +214,189 @@ func (c Config) Checkout(revision string) error {
 		return errors.New(strings.TrimSpace(string(output)))
 	}
 	return nil
+}
+
+func (c Config) Download(pipeline, version string) (err error) {
+	tmpDest, err := os.MkdirTemp(os.TempDir(), "plumber-")
+	if err != nil {
+		return err
+	}
+	r := GitRepo{
+		Url:       c.Repo,
+		LocalPath: tmpDest,
+	}
+	if err := r.Clone(); err != nil {
+		return err
+	}
+
+	defer func() {
+		slog.Debug("cleaning up cloned directory", "dir", tmpDest)
+		if err := os.RemoveAll(tmpDest); err != nil {
+			slog.Error("failed to clean up, do it manually", "dir", tmpDest, "error", err)
+		}
+	}()
+
+	if err := r.Checkout(c.Version); err != nil {
+		return err
+	}
+
+	pf, err := ReadPlumberFile(tmpDest)
+	if err != nil {
+		return err
+	}
+
+	var pipelineData *PipelineConfigMetadata
+	slog.Debug("test", "data", pipelineData)
+	nameIdx := -1
+	for i, p := range pf.Pipelines {
+		if p.Name == pipeline {
+			nameIdx = i
+			if p.Version == version {
+				pipelineData = &p
+			}
+		}
+	}
+
+	if pipelineData == nil {
+		msg := "pipeline not found in repo"
+		if nameIdx > -1 {
+			msg += fmt.Sprintf(", but different version was found: %s", pf.Pipelines[nameIdx].Version)
+		}
+		return fmt.Errorf("%s", msg)
+	}
+
+	slog.Debug("found pipeline", "name", pipeline, "version", version, "d", pipelineData)
+
+	slog.Debug("creating directory", "path", c.LocalPath)
+	if err := os.MkdirAll(c.LocalPath, os.ModePerm); err != nil {
+		return err
+	}
+
+	defer func() {
+		if err != nil {
+			slog.Debug("cleaning up potentially broken config", "dir", c.LocalPath)
+			cleanErr := os.RemoveAll(c.LocalPath)
+			if cleanErr != nil {
+				slog.Error("failed to clean up config, do it manually", "dir", c.LocalPath)
+			}
+		}
+	}()
+
+	for _, filename := range pipelineData.ConfigFiles {
+		slog.Debug("config file", "path", filename)
+		source := filepath.Join(tmpDest, filename)
+		target := filepath.Join(c.LocalPath, "config", filepath.Base(filename))
+		slog.Debug("copying config file", "source", source, "target", target)
+		if err := copy(source, target); err != nil {
+			return err
+		}
+	}
+
+	for _, filename := range pipelineData.ParamFiles {
+		slog.Debug("param file", "path", filename)
+		source := filepath.Join(tmpDest, filename)
+		target := filepath.Join(c.LocalPath, "param", filepath.Base(filename))
+		slog.Debug("copying param file", "source", source, "target", target)
+		if err := copy(source, target); err != nil {
+			return err
+		}
+	}
+
+	for _, filename := range pipelineData.Assets {
+		slog.Debug("asset", "path", filename)
+		source := filepath.Join(tmpDest, filename)
+		target := filepath.Join(c.LocalPath, "assets", filepath.Base(filename))
+		slog.Debug("copying assets", "source", source, "target", target)
+		if err := copy(source, target); err != nil {
+			return err
+		}
+	}
+
+	for _, filename := range pipelineData.Profiles {
+		slog.Debug("profile", "path", filename)
+		source := filepath.Join(tmpDest, filename)
+		target := filepath.Join(c.LocalPath, "profile", filepath.Base(filename))
+		slog.Debug("copying profile", "source", source, "target", target)
+		if err := copy(source, target); err != nil {
+			return err
+		}
+	}
+
+	slog.Debug("writing plumber file", "dir", c.LocalPath)
+	pipelinePf := PlumberFile{}
+	pipelinePf.Pipelines = append(pipelinePf.Pipelines, *pipelineData)
+	if err := pipelinePf.Write(c.LocalPath); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// copy the source file or directory to target. If the parent directory of target
+// doesn't exist, it is created, including any non-existing parent directories.
+// If source is a directory, then all contents are copied recursively.
+func copy(source, target string) error {
+	info, err := os.Stat(source)
+	if err != nil {
+		return err
+	}
+	if info.IsDir() {
+		return copyDir(source, target)
+	}
+	slog.Debug("creating directory", "path", filepath.Dir(target))
+	if err := os.MkdirAll(filepath.Dir(target), os.ModePerm); err != nil {
+		return err
+	}
+	return copyFile(source, target)
+}
+
+// copyDir copies the source directory to target.
+func copyDir(source, target string) error {
+	entries, err := os.ReadDir(source)
+	if err != nil {
+		return err
+	}
+
+	slog.Debug("creating directory", "path", filepath.Dir(target))
+	if err := os.MkdirAll(target, os.ModePerm); err != nil {
+		return err
+	}
+
+	for _, entry := range entries {
+		entrySource := filepath.Join(source, entry.Name())
+		entryTarget := filepath.Join(target, entry.Name())
+		if entry.IsDir() {
+			if err := copyDir(entrySource, entryTarget); err != nil {
+				return err
+			}
+		} else {
+			if err := copyFile(entrySource, entryTarget); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+// copyFile copies the source file to target.
+func copyFile(source, target string) error {
+	tf, err := os.Create(target)
+	if err != nil {
+		return err
+	}
+	defer tf.Close()
+	sf, err := os.Open(source)
+	if err != nil {
+		return err
+	}
+	defer sf.Close()
+
+	_, err = io.Copy(tf, sf)
+	if err != nil {
+		return err
+	}
+	return tf.Sync()
 }
 
 // Clone clones the repository and saves it in the local path.
