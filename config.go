@@ -43,6 +43,7 @@ type PlumberFile struct {
 	Source    string                   `yaml:"source,omitempty"`
 	Revision  string                   `yaml:"revision,omitempty"`
 	Pipelines []PipelineConfigMetadata `yaml:"pipelines"`
+	Path      string                   `yaml:"-"`
 }
 
 func NewPlumberFile() PlumberFile {
@@ -115,15 +116,18 @@ func (p PlumberFile) Validate() error {
 	return nil
 }
 
-func (p PlumberFile) Write(dir string) error {
+func (p PlumberFile) Write() error {
 	if err := p.Validate(); err != nil {
 		return err
+	}
+	if p.Path == "" {
+		return fmt.Errorf("plumber file has no path for writing")
 	}
 	b, err := yaml.Marshal(p)
 	if err != nil {
 		return err
 	}
-	filename := filepath.Join(dir, PlumberFileName)
+	filename := filepath.Join(p.Path, PlumberFileName)
 	return os.WriteFile(filename, b, 0o666)
 }
 
@@ -148,6 +152,7 @@ func ReadPlumberFile(directory string) (PlumberFile, error) {
 	if err != nil {
 		return pf, PlumberFileFormatError
 	}
+	pf.Path = directory
 	return pf, pf.Validate()
 }
 
@@ -266,16 +271,14 @@ func (c Config) Checkout(revision string) error {
 	return nil
 }
 
-func (c Config) Download(pipeline, version string) (err error) {
+func DownloadConfig(repo GitRepo, repoVersion string, plumberFile *PlumberFile) (err error) {
 	tmpDest, err := os.MkdirTemp(os.TempDir(), "plumber-")
 	if err != nil {
 		return err
 	}
-	r := GitRepo{
-		Url:       c.Repo,
-		LocalPath: tmpDest,
-	}
-	if err := r.Clone(); err != nil {
+	repo.LocalPath = tmpDest
+
+	if err := repo.Clone(); err != nil {
 		return err
 	}
 
@@ -286,7 +289,7 @@ func (c Config) Download(pipeline, version string) (err error) {
 		}
 	}()
 
-	if err := r.Checkout(c.Version); err != nil {
+	if err := repo.Checkout(repoVersion); err != nil {
 		return err
 	}
 
@@ -296,12 +299,11 @@ func (c Config) Download(pipeline, version string) (err error) {
 	}
 
 	var pipelineData *PipelineConfigMetadata
-	slog.Debug("test", "data", pipelineData)
 	nameIdx := -1
 	for i, p := range pf.Pipelines {
-		if p.Name == pipeline {
+		if p.Name == plumberFile.Pipelines[0].Name {
 			nameIdx = i
-			if p.Version == version {
+			if p.Version == plumberFile.Pipelines[0].Version {
 				pipelineData = &p
 			}
 		}
@@ -315,19 +317,19 @@ func (c Config) Download(pipeline, version string) (err error) {
 		return fmt.Errorf("%s", msg)
 	}
 
-	slog.Debug("found pipeline", "name", pipeline, "version", version, "d", pipelineData)
+	slog.Debug("found pipeline", "name", plumberFile.Pipelines[0].Name, "version", plumberFile.Pipelines[0].Version, "d", pipelineData)
 
-	slog.Debug("creating directory", "path", c.LocalPath)
-	if err := os.MkdirAll(c.LocalPath, os.ModePerm); err != nil {
+	slog.Debug("creating directory", "path", plumberFile.Path)
+	if err := os.MkdirAll(plumberFile.Path, os.ModePerm); err != nil {
 		return err
 	}
 
 	defer func() {
 		if err != nil {
-			slog.Debug("cleaning up potentially broken config", "dir", c.LocalPath)
-			cleanErr := os.RemoveAll(c.LocalPath)
+			slog.Debug("cleaning up potentially broken config", "dir", plumberFile.Path)
+			cleanErr := os.RemoveAll(plumberFile.Path)
 			if cleanErr != nil {
-				slog.Error("failed to clean up config, do it manually", "dir", c.LocalPath)
+				slog.Error("failed to clean up config, do it manually", "dir", plumberFile.Path)
 			}
 		}
 	}()
@@ -340,7 +342,7 @@ func (c Config) Download(pipeline, version string) (err error) {
 	for _, filename := range pipelineData.ConfigFiles {
 		slog.Debug("config file", "path", filename)
 		source := filepath.Join(tmpDest, filename)
-		target := filepath.Join(c.LocalPath, "config", filepath.Base(filename))
+		target := filepath.Join(plumberFile.Path, "config", filepath.Base(filename))
 		pipelineConfig.AddConfig(filepath.Join("config", filepath.Base(filename)))
 		slog.Debug("copying config file", "source", source, "target", target)
 		if err := copy(source, target); err != nil {
@@ -351,7 +353,7 @@ func (c Config) Download(pipeline, version string) (err error) {
 	for _, filename := range pipelineData.ParamFiles {
 		slog.Debug("param file", "path", filename)
 		source := filepath.Join(tmpDest, filename)
-		target := filepath.Join(c.LocalPath, "param", filepath.Base(filename))
+		target := filepath.Join(plumberFile.Path, "param", filepath.Base(filename))
 		pipelineConfig.AddParam(filepath.Join("param", filepath.Base(filename)))
 		slog.Debug("copying param file", "source", source, "target", target)
 		if err := copy(source, target); err != nil {
@@ -362,7 +364,7 @@ func (c Config) Download(pipeline, version string) (err error) {
 	for _, filename := range pipelineData.Assets {
 		slog.Debug("asset", "path", filename)
 		source := filepath.Join(tmpDest, filename)
-		target := filepath.Join(c.LocalPath, "assets", filepath.Base(filename))
+		target := filepath.Join(plumberFile.Path, "assets", filepath.Base(filename))
 		pipelineConfig.AddAssets(filepath.Join("assets", filepath.Base(filename)))
 		slog.Debug("copying assets", "source", source, "target", target)
 		if err := copy(source, target); err != nil {
@@ -373,7 +375,7 @@ func (c Config) Download(pipeline, version string) (err error) {
 	for _, filename := range pipelineData.Profiles {
 		slog.Debug("profile", "path", filename)
 		source := filepath.Join(tmpDest, filename)
-		target := filepath.Join(c.LocalPath, "profile", filepath.Base(filename))
+		target := filepath.Join(plumberFile.Path, "profile", filepath.Base(filename))
 		pipelineConfig.AddProfile(filepath.Join("profile", filepath.Base(filename)))
 		slog.Debug("copying profile", "source", source, "target", target)
 		if err := copy(source, target); err != nil {
@@ -381,12 +383,9 @@ func (c Config) Download(pipeline, version string) (err error) {
 		}
 	}
 
-	pipelinePlumberFile := NewPlumberFile()
-	pipelinePlumberFile.Source = r.Url
-	pipelinePlumberFile.Revision = c.Version
-	pipelinePlumberFile.Pipelines = append(pipelinePlumberFile.Pipelines, pipelineConfig)
-	slog.Debug("writing plumber file", "dir", c.LocalPath)
-	if err := pipelinePlumberFile.Write(c.LocalPath); err != nil {
+	plumberFile.Pipelines[0] = pipelineConfig
+	slog.Debug("writing plumber file", "dir", plumberFile.Path)
+	if err := plumberFile.Write(); err != nil {
 		return err
 	}
 
