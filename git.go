@@ -11,6 +11,12 @@ type GitRepo struct {
 	LocalPath string
 }
 
+func NewGitRepo(url string) GitRepo {
+	return GitRepo{
+		Url: url,
+	}
+}
+
 func (r GitRepo) Clone() error {
 	argv := []string{
 		"clone",

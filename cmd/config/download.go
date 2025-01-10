@@ -25,9 +25,13 @@ var (
 			configVersion := viper.GetString("config-version")
 			configDir := viper.GetString("config-home")
 			if downloadName == "" {
-				slog.Error("no local name provided")
-				os.Exit(1)
+				pipeline, err := plumber.ParsePipelineName(args[0])
+				if err != nil {
+					slog.Error("invalid pipeline name", "error", err)
+				}
+				downloadName = pipeline.String()
 			}
+			repo := plumber.NewGitRepo(configRepo)
 			path := filepath.Join(configDir, downloadName)
 			slog.Debug("flags", "repo", configRepo, "version", configVersion)
 			config := plumber.NewConfig(configRepo, configVersion, path)
@@ -35,10 +39,19 @@ var (
 				slog.Error("config already exists", "path", path)
 				os.Exit(1)
 			}
-			if err := config.Download(args[0], args[1]); err != nil {
+			pf := plumber.NewPlumberFile()
+			pf.Source = repo.Url
+			pf.Revision = configVersion
+			pf.Path = path
+			pf.Pipelines = append(pf.Pipelines, plumber.PipelineConfigMetadata{
+				Name:    args[0],
+				Version: args[1],
+			})
+			if err := plumber.DownloadConfig(repo, configVersion, &pf); err != nil {
 				slog.Error("error downloading config", "error", err.Error())
 				os.Exit(1)
 			}
+			slog.Info("pipeline config downloaded", "engine", pf.Pipelines[0].Engine, "name", pf.Pipelines[0].Name, "path", pf.Path)
 		},
 	}
 )
