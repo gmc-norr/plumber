@@ -26,8 +26,8 @@ var listCmd = &cobra.Command{
 			os.Exit(1)
 		}
 		tw := tabwriter.NewWriter(os.Stdout, 1, 2, 2, ' ', 0)
-		fmt.Fprint(tw, "name\tpipeline\tversion\tsource-repo\trevision\n")
-		fmt.Fprint(tw, "====\t========\t=======\t===========\t========\n")
+		fmt.Fprint(tw, "name\tpipeline\tversion\tengine\tsource-repo\trevision\n")
+		fmt.Fprint(tw, "====\t========\t=======\t======\t===========\t========\n")
 		didError := false
 		for _, f := range files {
 			if !f.IsDir() {
@@ -45,7 +45,7 @@ var listCmd = &cobra.Command{
 					slog.Error("error initialising config", "config", f.Name(), "error", err.Error(), "directory", configDir)
 				}
 			} else {
-				fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n", f.Name(), pf.Pipelines[0].Name, pf.Pipelines[0].Version, pf.Source, pf.Revision)
+				fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\n", f.Name(), pf.Pipelines[0].Name, pf.Pipelines[0].Version, pf.Pipelines[0].Engine, pf.Source, pf.Revision)
 			}
 		}
 		tw.Flush()
