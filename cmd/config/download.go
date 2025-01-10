@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -29,7 +30,7 @@ var (
 				if err != nil {
 					slog.Error("invalid pipeline name", "error", err)
 				}
-				downloadName = pipeline.String()
+				downloadName = fmt.Sprintf("%s-%s", pipeline.String(), args[1])
 			}
 			repo := plumber.NewGitRepo(configRepo)
 			path := filepath.Join(configDir, downloadName)
