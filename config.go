@@ -40,6 +40,8 @@ const PlumberFileName = "plumber.yaml"
 
 type PlumberFile struct {
 	Version   int                      `yaml:"version"`
+	Source    string                   `yaml:"source,omitempty"`
+	Revision  string                   `yaml:"revision,omitempty"`
 	Pipelines []PipelineConfigMetadata `yaml:"pipelines"`
 }
 
@@ -380,6 +382,8 @@ func (c Config) Download(pipeline, version string) (err error) {
 	}
 
 	pipelinePlumberFile := NewPlumberFile()
+	pipelinePlumberFile.Source = r.Url
+	pipelinePlumberFile.Revision = c.Version
 	pipelinePlumberFile.Pipelines = append(pipelinePlumberFile.Pipelines, pipelineConfig)
 	slog.Debug("writing plumber file", "dir", c.LocalPath)
 	if err := pipelinePlumberFile.Write(c.LocalPath); err != nil {
