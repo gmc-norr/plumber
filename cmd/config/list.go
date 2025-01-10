@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -14,30 +15,37 @@ import (
 
 var listCmd = &cobra.Command{
 	Use:   "list",
-	Short: "List existing config directories",
+	Short: "List existing configs",
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
-		configDir := viper.GetString("config-home")
-		fmt.Fprintf(os.Stdout, "# config home directory: %s\n", configDir)
-		files, err := os.ReadDir(configDir)
+		configHome := viper.GetString("config-home")
+		fmt.Fprintf(os.Stdout, "# config home directory: %s\n", configHome)
+		files, err := os.ReadDir(configHome)
 		if err != nil {
 			slog.Error("error listing directories", "error", err.Error())
 			os.Exit(1)
 		}
-		tw := tabwriter.NewWriter(os.Stdout, 1, 2, 1, ' ', 0)
-		fmt.Fprint(tw, "config\tparent repository\tversion\n")
-		fmt.Fprint(tw, "======\t=================\t=======\n")
+		tw := tabwriter.NewWriter(os.Stdout, 1, 2, 2, ' ', 0)
+		fmt.Fprint(tw, "name\tpipeline\tversion\tsource-repo\trevision\n")
+		fmt.Fprint(tw, "====\t========\t=======\t===========\t========\n")
 		didError := false
 		for _, f := range files {
 			if !f.IsDir() {
 				continue
 			}
-			c, err := plumber.ConfigFromPath(filepath.Join(configDir, f.Name()))
+			configDir := filepath.Join(configHome, f.Name())
+			pf, err := plumber.ReadPlumberFile(configDir)
 			if err != nil {
-				didError = true
-				slog.Error("error initialising config", "config", f.Name(), "error", err.Error())
+				var pfError plumber.PlumberFileNotFound
+				if errors.As(err, &pfError) {
+					// Ignore the directory if no plumber file is found
+					slog.Debug("no plumber file found", "error", err.Error())
+				} else {
+					didError = true
+					slog.Error("error initialising config", "config", f.Name(), "error", err.Error(), "directory", configDir)
+				}
 			} else {
-				fmt.Fprintf(tw, "%s\t%s\t%s\n", f.Name(), c.Repo, c.Version)
+				fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n", f.Name(), pf.Pipelines[0].Name, pf.Pipelines[0].Version, pf.Source, pf.Revision)
 			}
 		}
 		tw.Flush()
