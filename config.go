@@ -271,32 +271,41 @@ func (c Config) Checkout(revision string) error {
 	return nil
 }
 
-func DownloadConfig(repo GitRepo, repoVersion string, plumberFile *PlumberFile) (err error) {
+// DownloadConfigRepo clones a config repo into a temporary directory and sets
+// GitRepo.Path accordingly. It returns a PlumberFile, and if the repo
+// cannot be cloned, checked out, or the plumber file cannot be read, an
+// error is also returned, otherwise nil.
+func DownloadConfigRepo(repo *GitRepo, repoVersion string) (PlumberFile, error) {
+	var pf PlumberFile
 	tmpDest, err := os.MkdirTemp(os.TempDir(), "plumber-")
 	if err != nil {
-		return err
+		return pf, err
 	}
 	repo.LocalPath = tmpDest
 
 	if err := repo.Clone(); err != nil {
+		return pf, err
+	}
+
+	if err := repo.Checkout(repoVersion); err != nil {
+		return pf, err
+	}
+
+	return ReadPlumberFile(tmpDest)
+}
+
+func DownloadConfig(repo GitRepo, repoVersion string, plumberFile *PlumberFile) (err error) {
+	pf, err := DownloadConfigRepo(&repo, repoVersion)
+	if err != nil {
 		return err
 	}
 
 	defer func() {
-		slog.Debug("cleaning up cloned directory", "dir", tmpDest)
-		if err := os.RemoveAll(tmpDest); err != nil {
-			slog.Error("failed to clean up, do it manually", "dir", tmpDest, "error", err)
+		slog.Debug("cleaning up cloned directory", "dir", repo.LocalPath)
+		if err := os.RemoveAll(repo.LocalPath); err != nil {
+			slog.Error("failed to clean up, do it manually", "dir", repo.LocalPath, "error", err)
 		}
 	}()
-
-	if err := repo.Checkout(repoVersion); err != nil {
-		return err
-	}
-
-	pf, err := ReadPlumberFile(tmpDest)
-	if err != nil {
-		return err
-	}
 
 	var pipelineData *PipelineConfigMetadata
 	nameIdx := -1
@@ -341,7 +350,7 @@ func DownloadConfig(repo GitRepo, repoVersion string, plumberFile *PlumberFile) 
 
 	for _, filename := range pipelineData.ConfigFiles {
 		slog.Debug("config file", "path", filename)
-		source := filepath.Join(tmpDest, filename)
+		source := filepath.Join(repo.LocalPath, filename)
 		target := filepath.Join(plumberFile.Path, "config", filepath.Base(filename))
 		pipelineConfig.AddConfig(filepath.Join("config", filepath.Base(filename)))
 		slog.Debug("copying config file", "source", source, "target", target)
@@ -352,7 +361,7 @@ func DownloadConfig(repo GitRepo, repoVersion string, plumberFile *PlumberFile) 
 
 	for _, filename := range pipelineData.ParamFiles {
 		slog.Debug("param file", "path", filename)
-		source := filepath.Join(tmpDest, filename)
+		source := filepath.Join(repo.LocalPath, filename)
 		target := filepath.Join(plumberFile.Path, "param", filepath.Base(filename))
 		pipelineConfig.AddParam(filepath.Join("param", filepath.Base(filename)))
 		slog.Debug("copying param file", "source", source, "target", target)
@@ -363,7 +372,7 @@ func DownloadConfig(repo GitRepo, repoVersion string, plumberFile *PlumberFile) 
 
 	for _, filename := range pipelineData.Assets {
 		slog.Debug("asset", "path", filename)
-		source := filepath.Join(tmpDest, filename)
+		source := filepath.Join(repo.LocalPath, filename)
 		target := filepath.Join(plumberFile.Path, "assets", filepath.Base(filename))
 		pipelineConfig.AddAssets(filepath.Join("assets", filepath.Base(filename)))
 		slog.Debug("copying assets", "source", source, "target", target)
@@ -374,7 +383,7 @@ func DownloadConfig(repo GitRepo, repoVersion string, plumberFile *PlumberFile) 
 
 	for _, filename := range pipelineData.Profiles {
 		slog.Debug("profile", "path", filename)
-		source := filepath.Join(tmpDest, filename)
+		source := filepath.Join(repo.LocalPath, filename)
 		target := filepath.Join(plumberFile.Path, "profile", filepath.Base(filename))
 		pipelineConfig.AddProfile(filepath.Join("profile", filepath.Base(filename)))
 		slog.Debug("copying profile", "source", source, "target", target)
