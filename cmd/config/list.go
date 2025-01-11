@@ -37,8 +37,7 @@ var (
 				fmt.Fprint(tw, "pipeline\tversion\tengine\n")
 				fmt.Fprint(tw, "========\t=======\t======\n")
 				for _, pipeline := range pf.Pipelines {
-					slog.Debug("pipeline", "name", pipeline.Name)
-					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n", pipeline.Name, pipeline.Version, pipeline.Engine, pf.Source, pf.Revision)
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n", pipeline.Pipeline.Repo, pipeline.Version, pipeline.Engine, pf.Source, pf.Revision)
 				}
 				tw.Flush()
 				return
@@ -66,10 +65,10 @@ var (
 						slog.Debug("no plumber file found", "error", err.Error())
 					} else {
 						didError = true
-						slog.Error("error initialising config", "config", f.Name(), "error", err.Error(), "directory", configDir)
+						slog.Error("error initialising config", "config", f.Name(), "error", err, "directory", configDir)
 					}
 				} else {
-					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\n", f.Name(), pf.Pipelines[0].Name, pf.Pipelines[0].Version, pf.Pipelines[0].Engine, pf.Source, pf.Revision)
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\n", f.Name(), pf.Pipelines[0].Pipeline.Repo, pf.Pipelines[0].Version, pf.Pipelines[0].Engine, pf.Source, pf.Revision)
 				}
 			}
 			tw.Flush()

@@ -10,6 +10,8 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+
+	"gopkg.in/yaml.v3"
 )
 
 // ValidPipelineName checks that the name of a pipeline is valid. It should be on the form
@@ -37,6 +39,16 @@ type Pipeline struct {
 	Pipeline     string
 	Revision     string
 	Repo         string
+}
+
+func (p *Pipeline) UnmarshalYAML(value *yaml.Node) error {
+	pipeline, err := ParsePipelineName(value.Value)
+	*p = pipeline
+	return err
+}
+
+func (p Pipeline) MarshalYAML() (interface{}, error) {
+	return p.Repo, nil
 }
 
 // String representation of Pipeline name. The representation is on the form <org>-<repo>, and

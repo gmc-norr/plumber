@@ -52,8 +52,16 @@ func NewPlumberFile() PlumberFile {
 	}
 }
 
+func (p PlumberFile) Exists() bool {
+	info, err := os.Stat(p.Path)
+	if err != nil {
+		return false
+	}
+	return info.IsDir()
+}
+
 type PipelineConfigMetadata struct {
-	Name        string   `yaml:"name"`
+	Pipeline    Pipeline `yaml:"name"`
 	Engine      string   `yaml:"engine"`
 	Version     string   `yaml:"version"`
 	Profiles    []string `yaml:"profiles"`
@@ -83,8 +91,8 @@ func (p PlumberFile) Validate() error {
 		return fmt.Errorf("%w: plumber file version 1 is the only supported version", PlumberFileFormatError)
 	}
 	for i, p := range p.Pipelines {
-		if p.Name == "" {
-			return fmt.Errorf("%w: invalid name for pipeline %d: %q", PlumberFileFormatError, i, p.Name)
+		if p.Pipeline.Repo == "" {
+			return fmt.Errorf("%w: invalid name for pipeline %d: %q", PlumberFileFormatError, i, p.Pipeline.Repo)
 		}
 		if p.Engine == "" {
 			return fmt.Errorf("%w: invalid engine for pipeline %d: %q", PlumberFileFormatError, i, p.Engine)
@@ -310,7 +318,7 @@ func DownloadConfig(repo GitRepo, repoVersion string, plumberFile *PlumberFile) 
 	var pipelineData *PipelineConfigMetadata
 	nameIdx := -1
 	for i, p := range pf.Pipelines {
-		if p.Name == plumberFile.Pipelines[0].Name {
+		if p.Pipeline == plumberFile.Pipelines[0].Pipeline {
 			nameIdx = i
 			if p.Version == plumberFile.Pipelines[0].Version {
 				pipelineData = &p
@@ -326,7 +334,7 @@ func DownloadConfig(repo GitRepo, repoVersion string, plumberFile *PlumberFile) 
 		return fmt.Errorf("%s", msg)
 	}
 
-	slog.Debug("found pipeline", "name", plumberFile.Pipelines[0].Name, "version", plumberFile.Pipelines[0].Version, "d", pipelineData)
+	slog.Debug("found pipeline", "name", plumberFile.Pipelines[0].Pipeline, "version", plumberFile.Pipelines[0].Version, "d", pipelineData)
 
 	slog.Debug("creating directory", "path", plumberFile.Path)
 	if err := os.MkdirAll(plumberFile.Path, os.ModePerm); err != nil {
@@ -344,7 +352,7 @@ func DownloadConfig(repo GitRepo, repoVersion string, plumberFile *PlumberFile) 
 	}()
 
 	pipelineConfig := PipelineConfigMetadata{}
-	pipelineConfig.Name = pipelineData.Name
+	pipelineConfig.Pipeline = pipelineData.Pipeline
 	pipelineConfig.Engine = pipelineData.Engine
 	pipelineConfig.Version = pipelineData.Version
 
