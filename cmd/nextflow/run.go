@@ -51,7 +51,7 @@ var (
 				nextflowConfig = fmt.Sprintf("%s-%s", pipeline.String(), pipelineVersion)
 			}
 			path := filepath.Join(configDir, nextflowConfig)
-			c, err := plumber.ConfigFromPath(path)
+			pf, err := plumber.ReadPlumberFile(path)
 			if err != nil {
 				if configRepo == "" {
 					slog.Error("no config found, and no repo given")
@@ -61,37 +61,35 @@ var (
 					slog.Error("no config found, and no version given")
 					os.Exit(1)
 				}
-				c = plumber.NewConfig(configRepo, configVersion, path)
-				if err := c.Clone(); err != nil {
-					slog.Error("error cloning config", "repo", c.Repo, "path", c.LocalPath, "error", err.Error())
+				pf = plumber.NewPlumberFile()
+				pf.Pipelines = append(pf.Pipelines, plumber.PipelineConfigMetadata{
+					Pipeline: pipeline,
+				})
+				repo := plumber.NewGitRepo(configRepo)
+				err = plumber.DownloadConfig(repo, configVersion, &pf)
+				if err != nil {
+					slog.Error("error downloading config", "repo", pf.Source, "path", pf.Path, "error", err)
 					os.Exit(1)
 				}
 			} else {
-				slog.Info("using existing config", "path", c.LocalPath, "version", c.Version)
+				slog.Info("using existing config", "path", pf.Path, "version", pf.Pipelines[0].Version)
 			}
-			if configRepo != "" && c.Repo != configRepo {
-				slog.Warn("--config-repo doesn't match with loaded config, versions might mismatch", "config-repo", configRepo, "config", c.Repo)
+			if configRepo != "" && pf.Source != configRepo {
+				slog.Warn("--config-repo doesn't match with loaded config, versions might mismatch", "config-repo", configRepo, "config", pf.Pipelines[0].Pipeline.Repo)
 			}
-			if configVersion != "" && c.Version != configVersion {
-				slog.Info("checking out config version", "version", configVersion)
-				if err := c.Checkout(configVersion); err != nil {
-					slog.Error("error checking out config files", "repo", c.Repo, "version", configVersion, "path", c.LocalPath, "error", err.Error())
-					os.Exit(1)
-				}
+			if configVersion != "" && pf.Pipelines[0].Version != configVersion {
+				// TODO: If the config versions are different, then a new config should be
+				// downloaded to ensure that you're working on what you think you are working on.
+				// This will require a change when it comes to how the directory names are generated.
+				slog.Warn("config versions differ", "requested", configVersion, "existing", pf.Pipelines[0].Version)
 			}
-			slog.Debug("nextflow config", "path", c.LocalPath, "version", c.Version)
+			slog.Debug("nextflow config", "path", pf.Path, "version", pf.Pipelines[0].Version)
 
-			nfConfig, err := plumber.NewNextflowConfig(pipeline, c)
-			if err != nil {
-				slog.Error("error initialising Nextflow config", "error", err.Error())
-				os.Exit(1)
-			}
-			nfConfig.Profile = nextflowProfile
-
-			nfPipeline := plumber.NewNextflowPipeline(nfConfig)
-			nfPipeline.SetEnv("NEXTFLOW_CONFIG_HOME", filepath.Join(nfConfig.Config.LocalPath, "nextflow"))
+			nfPipeline := plumber.NewNextflowPipeline(pf)
+			// TODO: Do I need to set this? Probably, but the path probably need to change a bit.
+			// nfPipeline.SetEnv("NEXTFLOW_CONFIG_HOME", filepath.Join(nfConfig.Config.LocalPath, "nextflow"))
 			nfPipeline.Workdir = nextflowWorkdir
-			if err := nfPipeline.Run(nextflowArgs); err != nil {
+			if err := nfPipeline.Run(nextflowProfile, nextflowArgs); err != nil {
 				slog.Error("error running pipeline", "error", err.Error())
 				os.Exit(1)
 			}

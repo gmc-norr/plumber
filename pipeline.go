@@ -130,16 +130,16 @@ func (p Pipeline) Check() error {
 // NextflowPipeline represents a Nextflow pipeline.
 type NextflowPipeline struct {
 	// The config for the pipeline
-	NextflowConfig
+	PlumberFile
 	Env     map[string]string
 	Workdir string
 }
 
 // NewNextflowPipeline creates a new Nextflow pipeline.
-func NewNextflowPipeline(config NextflowConfig) NextflowPipeline {
+func NewNextflowPipeline(plumberFile PlumberFile) NextflowPipeline {
 	p := NextflowPipeline{
-		NextflowConfig: config,
-		Env:            make(map[string]string, 0),
+		PlumberFile: plumberFile,
+		Env:         make(map[string]string, 0),
 	}
 	return p
 }
@@ -150,25 +150,25 @@ func (p *NextflowPipeline) SetEnv(key, value string) {
 }
 
 // Run a nextflow pipeline.
-func (p *NextflowPipeline) Run(extraArgs []string) error {
+func (p *NextflowPipeline) Run(profile string, extraArgs []string) error {
 	slog.Info("starting pipeline execution")
 	args := []string{
 		"run",
 		"-ansi-log", "false",
-		p.Pipeline.Repo,
+		p.PlumberFile.Pipelines[0].Pipeline.Repo,
 		"-r",
-		p.Pipeline.Revision,
+		p.PlumberFile.Pipelines[0].Pipeline.Revision,
 		"-c",
-		p.ConfigFile,
+		p.PlumberFile.Pipelines[0].ConfigFiles[0],
 	}
 	args = append(args, extraArgs...)
-	if p.ParamsFile != "" {
+	for _, paramsFile := range p.PlumberFile.Pipelines[0].ParamFiles {
 		args = append(args, "-params-file")
-		args = append(args, p.ParamsFile)
+		args = append(args, paramsFile)
 	}
-	if p.Profile != "" {
+	if profile != "" {
 		args = append(args, "-profile")
-		args = append(args, p.Profile)
+		args = append(args, profile)
 	}
 	cmd := exec.Command("nextflow", args...)
 	cmd.Env = os.Environ()

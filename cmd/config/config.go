@@ -12,8 +12,5 @@ var ConfigCmd = &cobra.Command{
 func init() {
 	ConfigCmd.AddCommand(listCmd)
 	ConfigCmd.AddCommand(downloadCmd)
-	ConfigCmd.AddCommand(checkoutCmd)
-	ConfigCmd.AddCommand(mvCmd)
-	ConfigCmd.AddCommand(fetchCmd)
 	ConfigCmd.AddCommand(rmCmd)
 }
