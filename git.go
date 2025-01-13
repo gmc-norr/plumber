@@ -27,7 +27,7 @@ func NewGitRepo(path string) (GitRepo, error) {
 func (r GitRepo) Clone() error {
 	argv := []string{
 		"clone",
-		r.Url.RawPath,
+		r.Url.String(),
 	}
 	if r.LocalPath != "" {
 		argv = append(argv, r.LocalPath)

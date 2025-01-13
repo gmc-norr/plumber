@@ -46,7 +46,7 @@ var (
 				os.Exit(1)
 			}
 			pf := plumber.NewPlumberFile()
-			pf.Source = repo.Url.RawPath
+			pf.Source = repo.Url.String()
 			pf.Revision = configVersion
 			pf.Path = path
 			pf.Pipelines = append(pf.Pipelines, plumber.PipelineConfigMetadata{
