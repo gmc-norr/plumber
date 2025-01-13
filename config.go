@@ -87,6 +87,9 @@ func (p PlumberFile) Validate() error {
 	if p.Version != 1 {
 		return fmt.Errorf("%w: plumber file version 1 is the only supported version", PlumberFileFormatError)
 	}
+	if len(p.Pipelines) == 0 {
+		return fmt.Errorf("%w: plumber file does not have any pipeline definitions", PlumberFileFormatError)
+	}
 	for i, p := range p.Pipelines {
 		if p.Pipeline.Repo == "" {
 			return fmt.Errorf("%w: invalid name for pipeline %d: %q", PlumberFileFormatError, i, p.Pipeline.Repo)
