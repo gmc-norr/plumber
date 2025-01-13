@@ -25,8 +25,16 @@ var (
 		Short: "Run a Nextflow pipeline",
 		Long:  `Run a Nextflow pipeline with a configuration managed by plumber. Any arguments passed after -- will be passed directly to Nextflow.`,
 		Args: func(cmd *cobra.Command, args []string) error {
-			plumberArgs := args[:cmd.ArgsLenAtDash()]
-			nextflowArgs = args[cmd.ArgsLenAtDash():]
+			if err := cobra.MinimumNArgs(1)(cmd, args); err != nil {
+				return err
+			}
+			var plumberArgs []string
+			if n := cmd.ArgsLenAtDash(); n != -1 {
+				plumberArgs = args[:cmd.ArgsLenAtDash()]
+				nextflowArgs = args[cmd.ArgsLenAtDash():]
+			} else {
+				plumberArgs = args
+			}
 			if err := cobra.ExactArgs(1)(cmd, plumberArgs); err != nil {
 				return err
 			}
