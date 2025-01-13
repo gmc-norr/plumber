@@ -27,7 +27,11 @@ var (
 				configRepo := viper.GetString("config-repo")
 				configVersion := viper.GetString("config-version")
 				slog.Debug("repo", "url", configRepo, "version", configVersion)
-				repo := plumber.NewGitRepo(configRepo)
+				repo, err := plumber.NewGitRepo(configRepo)
+				if err != nil {
+					slog.Error("error initialising git repo", "error", err)
+					os.Exit(1)
+				}
 				pf, err := plumber.DownloadConfigRepo(&repo, configVersion)
 				if err != nil {
 					slog.Error("error getting config repo", "error", err)

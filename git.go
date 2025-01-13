@@ -3,24 +3,31 @@ package plumber
 import (
 	"fmt"
 	"log/slog"
+	"net/url"
 	"os/exec"
 )
 
 type GitRepo struct {
-	Url       string
+	Url       *url.URL
 	LocalPath string
 }
 
-func NewGitRepo(url string) GitRepo {
-	return GitRepo{
-		Url: url,
+func NewGitRepo(path string) (GitRepo, error) {
+	r := GitRepo{}
+
+	u, err := url.Parse(path)
+	if err != nil {
+		return r, err
 	}
+
+	r.Url = u
+	return r, nil
 }
 
 func (r GitRepo) Clone() error {
 	argv := []string{
 		"clone",
-		r.Url,
+		r.Url.RawPath,
 	}
 	if r.LocalPath != "" {
 		argv = append(argv, r.LocalPath)
@@ -43,4 +50,8 @@ func (r GitRepo) Checkout(version string) error {
 		return fmt.Errorf("%w: %s", err, o)
 	}
 	return nil
+}
+
+func (r GitRepo) IsLocal() bool {
+	return r.Url.Hostname() == "" && r.Url.Scheme == ""
 }

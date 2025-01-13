@@ -29,18 +29,24 @@ var (
 				pipeline, err := plumber.ParsePipelineName(args[0])
 				if err != nil {
 					slog.Error("invalid pipeline name", "error", err)
+					os.Exit(1)
 				}
 				downloadName = fmt.Sprintf("%s-%s", pipeline.String(), args[1])
 			}
-			repo := plumber.NewGitRepo(configRepo)
+			repo, err := plumber.NewGitRepo(configRepo)
+			if err != nil {
+				slog.Error("error initialising git repo", "error", err)
+				os.Exit(1)
+			}
 			path := filepath.Join(configDir, downloadName)
 			slog.Debug("flags", "repo", configRepo, "version", configVersion)
 			pipeline, err := plumber.ParsePipelineName(args[0])
 			if err != nil {
 				slog.Error("error parsing pipeline name", "error", err)
+				os.Exit(1)
 			}
 			pf := plumber.NewPlumberFile()
-			pf.Source = repo.Url
+			pf.Source = repo.Url.RawPath
 			pf.Revision = configVersion
 			pf.Path = path
 			pf.Pipelines = append(pf.Pipelines, plumber.PipelineConfigMetadata{

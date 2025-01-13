@@ -65,7 +65,11 @@ var (
 				pf.Pipelines = append(pf.Pipelines, plumber.PipelineConfigMetadata{
 					Pipeline: pipeline,
 				})
-				repo := plumber.NewGitRepo(configRepo)
+				repo, err := plumber.NewGitRepo(configRepo)
+				if err != nil {
+					slog.Error("error initialising git repo", "error", err)
+					os.Exit(1)
+				}
 				err = plumber.DownloadConfig(repo, configVersion, &pf)
 				if err != nil {
 					slog.Error("error downloading config", "repo", pf.Source, "path", pf.Path, "error", err)
