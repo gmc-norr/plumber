@@ -58,9 +58,11 @@ var (
 			if nextflowConfig == "" {
 				nextflowConfig = fmt.Sprintf("%s-%s", pipeline.String(), pipelineVersion)
 			}
+			slog.Debug("attempting to read config", "path", filepath.Join(configDir, nextflowConfig))
 			path := filepath.Join(configDir, nextflowConfig)
 			pf, err := plumber.ReadPlumberFile(path)
 			if err != nil {
+				slog.Debug("no existing config found, attempting download")
 				if configRepo == "" {
 					slog.Error("no config found, and no repo given")
 					os.Exit(1)
@@ -70,8 +72,10 @@ var (
 					os.Exit(1)
 				}
 				pf = plumber.NewPlumberFile()
+				pf.Path = path
 				pf.Pipelines = append(pf.Pipelines, plumber.PipelineConfigMetadata{
 					Pipeline: pipeline,
+					Version:  pipeline.Revision,
 				})
 				repo, err := plumber.NewGitRepo(configRepo)
 				if err != nil {
@@ -98,8 +102,7 @@ var (
 			slog.Debug("nextflow config", "path", pf.Path, "version", pf.Pipelines[0].Version)
 
 			nfPipeline := plumber.NewNextflowPipeline(pf)
-			// TODO: Do I need to set this? Probably, but the path probably need to change a bit.
-			// nfPipeline.SetEnv("NEXTFLOW_CONFIG_HOME", filepath.Join(nfConfig.Config.LocalPath, "nextflow"))
+			nfPipeline.SetEnv("PLUMBER_ASSETS_PATH", filepath.Join(pf.Path, "assets"))
 			nfPipeline.Workdir = nextflowWorkdir
 			if err := nfPipeline.Run(nextflowProfile, nextflowArgs); err != nil {
 				slog.Error("error running pipeline", "error", err.Error())
