@@ -139,6 +139,43 @@ func (p PlumberFile) Write() error {
 	return os.WriteFile(filename, b, 0o666)
 }
 
+func (p PlumberFile) singlePipeline() bool {
+	return p.Source != "" && len(p.Pipelines) == 1
+}
+
+func (p PlumberFile) ConfigFiles() []string {
+	if !p.singlePipeline() {
+		slog.Warn("not a pipeline-specific config")
+	}
+	files := make([]string, len(p.Pipelines[0].ConfigFiles))
+	for i, f := range p.Pipelines[0].ConfigFiles {
+		files[i] = filepath.Join(p.Path, f)
+	}
+	return files
+}
+
+func (p PlumberFile) ParamFiles() []string {
+	if !p.singlePipeline() {
+		slog.Warn("not a pipeline-specific config")
+	}
+	files := make([]string, len(p.Pipelines[0].ParamFiles))
+	for i, f := range p.Pipelines[0].ParamFiles {
+		files[i] = filepath.Join(p.Path, f)
+	}
+	return files
+}
+
+func (p PlumberFile) Profiles() []string {
+	if !p.singlePipeline() {
+		slog.Warn("not a pipeline-specific config")
+	}
+	files := make([]string, len(p.Pipelines[0].Profiles))
+	for i, f := range p.Pipelines[0].Profiles {
+		files[i] = filepath.Join(p.Path, f)
+	}
+	return files
+}
+
 func ReadPlumberFile(directory string) (PlumberFile, error) {
 	pf := PlumberFile{}
 	path := filepath.Join(directory, PlumberFileName)
@@ -201,9 +238,10 @@ func DownloadConfig(repo GitRepo, repoVersion string, plumberFile *PlumberFile) 
 	}()
 
 	var pipelineData *PipelineConfigMetadata
+	slog.Debug("looking for pipeline", "pipeline", plumberFile.Pipelines[0].Pipeline)
 	nameIdx := -1
 	for i, p := range pf.Pipelines {
-		if p.Pipeline == plumberFile.Pipelines[0].Pipeline {
+		if p.Pipeline.Repo == plumberFile.Pipelines[0].Pipeline.Repo {
 			nameIdx = i
 			if p.Version == plumberFile.Pipelines[0].Version {
 				pipelineData = &p
@@ -285,6 +323,8 @@ func DownloadConfig(repo GitRepo, repoVersion string, plumberFile *PlumberFile) 
 		}
 	}
 
+	plumberFile.Source = repo.Url.String()
+	plumberFile.Revision = repoVersion
 	plumberFile.Pipelines[0] = pipelineConfig
 	slog.Debug("writing plumber file", "dir", plumberFile.Path)
 	if err := plumberFile.Write(); err != nil {
