@@ -1,0 +1,96 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://github.com/gmc-norr/plumber/blob/schema/plumber-v1.schema.json",
+    "title": "plumberfile",
+    "description": "plumberfile v1 definition, see https://github.com/gmc-norr/plumber",
+    "type": "object",
+    "required": ["version", "pipelines"],
+    "properties": {
+        "version": {
+            "description": "plumberfile version",
+            "type": "integer",
+            "const": 1
+        },
+        "source": {
+            "description": "URI to the original source of the config, only valid for single pipelines",
+            "type": "string",
+            "format": "uri-reference"
+        },
+        "revision": {
+            "description": "revision of the original source from which the configuration was fetched, only valid for single pipelines",
+            "type": "string",
+            "format": "uri-reference"
+        },
+        "pipelines": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+                "type": "object",
+                "required": ["name", "engine", "version"],
+                "properties": {
+                    "name": {
+                        "description": "pipeline name, which should be on the form <org>/<repo>",
+                        "type": "string"
+                    },
+                    "engine": {
+                        "description": "pipeline engine",
+                        "enum": ["nextflow", "snakemake"]
+                    },
+                    "version": {
+                        "description": "the pipeline version that this configuration supports",
+                        "type": "string"
+                    },
+                    "profiles": {
+                        "description": "profile definitions that should be available for pipeline execution",
+                        "type": "array",
+                        "items": {
+                            "description": "relative path to a profile, either a file or directory",
+                            "type": "string",
+                            "format": "uri-reference"
+                        }
+                    },
+                    "config_files": {
+                        "description": "profile definitions that should be available for pipeline execution",
+                        "type": "array",
+                        "items": {
+                            "description": "relative path to a config file",
+                            "type": "string",
+                            "format": "uri-reference"
+                        }
+                    },
+                    "param_files": {
+                        "description": "parameter files that should be included for pipeline execution",
+                        "type": "array",
+                        "items": {
+                            "description": "relative path to a parameter file",
+                            "type": "string",
+                            "format": "uri-reference"
+                        }
+                    },
+                    "assets": {
+                        "description": "assets that should be available for pipeline execution",
+                        "type": "array",
+                        "items": {
+                            "description": "relative path to asset, either a file or directory",
+                            "type": "string",
+                            "format": "uri-reference"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "dependentRequired": {
+        "source": ["revision"],
+        "revision": ["source"]
+    },
+    "dependentSchemas": {
+        "source": {
+            "properties": {
+                "pipelines": {
+                    "maxItems": 1
+                }
+            }
+        }
+    }
+}

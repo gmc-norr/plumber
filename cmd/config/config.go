@@ -13,4 +13,5 @@ func init() {
 	ConfigCmd.AddCommand(listCmd)
 	ConfigCmd.AddCommand(downloadCmd)
 	ConfigCmd.AddCommand(rmCmd)
+	ConfigCmd.AddCommand(validateCmd)
 }

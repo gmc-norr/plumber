@@ -2,6 +2,7 @@ package plumber
 
 import (
 	"crypto/md5"
+	"embed"
 	"errors"
 	"fmt"
 	"io"
@@ -9,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/santhosh-tekuri/jsonschema/v5"
 	"gopkg.in/yaml.v3"
 )
 
@@ -197,6 +199,41 @@ func ReadPlumberFile(directory string) (PlumberFile, error) {
 	}
 	pf.Path = directory
 	return pf, pf.Validate()
+}
+
+//go:embed schema/plumber-v1.schema.json
+var schemaV1 embed.FS
+
+func ValidatePlumberYaml(path string) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	b, err := io.ReadAll(f)
+	if err != nil {
+		return err
+	}
+	var y map[string]interface{}
+	err = yaml.Unmarshal(b, &y)
+	if err != nil {
+		return err
+	}
+
+	compiler := jsonschema.NewCompiler()
+	schemaFile, err := schemaV1.Open("schema/plumber-v1.schema.json")
+	if err != nil {
+		return err
+	}
+	if err := compiler.AddResource("plumberfile/v1", schemaFile); err != nil {
+		return err
+	}
+	schema, err := compiler.Compile("plumberfile/v1")
+	if err != nil {
+		return err
+	}
+
+	return schema.Validate(y)
 }
 
 // DownloadConfigRepo clones a config repo into a temporary directory and sets

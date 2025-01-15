@@ -14,7 +14,7 @@ Plumber is a wrapper for Snakemake and nf-core pipelines that are run at GMC Nor
 
 ## Running plumber
 
-Plumber is very much adapted to work with the [gmc-norr/config-files](https://github.comg/gmc-norr/config-files) rrepository. Config files will be cloned for local use, and the default location for this is `${XDG_CONFIG_HOME}/plumber`. If `XDG_CONFIG_HOME` is not set, `$HOME/.config/plumber` will be used instead.
+Plumber is very much adapted to work with the [gmc-norr/config-files](https://github.comg/gmc-norr/config-files) repository. Config files will be downloaded for local use, and the default location for this is `${XDG_CONFIG_HOME}/plumber`. If `XDG_CONFIG_HOME` is not set, `$HOME/.config/plumber` will be used instead.
 
 In order to do some sanity checks of pipelines, the Github API is being used. Without an authorisation token, it is quite easy to hit the rate limit of the API. The program will still work, but these checks will not be performed. By generating an access token and defining the environment variable `PLUMBER_GITHUB_TOKEN` authorisation will be performed, and higher rate limits will be set.
 
@@ -23,6 +23,20 @@ In order to do some sanity checks of pipelines, the Github API is being used. Wi
 - `PLUMBER_CONFIG_HOME`: Location where config files will be stored. Defaults to `${XDG_CONFIG_HOME}/plumber`, and if that is undefined `$HOME/.config/plumber`.
 - `PLUMBER_GITHUB_TOKEN`: Github access token for API access.
 - `PLUMBER_LOGLEVEL`: Controls verbosity of logs. Valid values are `debug`, `info`, `warn` and `error`. These are listed in decreasing level of verbosity. Default is `warn`.
+
+## Plumberfiles
+
+Plumber makes use of simple yaml metadata files called plumberfiles.
+These come in two flavours: one representing a collection of pipeline configurations and one representing the config for a single pipeline.
+They both have the same format.
+The difference is that the one representing a single pipeline has fields defining the origin of the configuration (a git repo) and what revision of that configuration was used.
+Another difference is that while plumberfile representing a collection of pipiline can contain one or more pipelines, the version representing a single pipeline can contain only one pipeline configuration.
+
+Plumber ships with a command for validating the format of a plumber file:
+
+```bash
+plumber config validate plumber.yaml
+```
 
 ## Current limitations
 
