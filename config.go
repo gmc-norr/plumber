@@ -22,17 +22,6 @@ func (e PlumberFileNotFound) Error() string {
 	return fmt.Sprintf("plumber file not found: %s", e.Path)
 }
 
-// Config defines the config files for a pipeline.
-type Config struct {
-	// The repository that should be used for the config files.
-	// This should either be the url to a git repo, or a path
-	Repo string
-	// Version should be a tag, branch or commit that should be checked out.
-	Version string
-	// The local path where the repo should be checked out.
-	LocalPath string
-}
-
 const PlumberFileName = "plumber.yaml"
 
 type PlumberFile struct {
