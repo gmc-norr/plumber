@@ -13,8 +13,6 @@ import (
 )
 
 var (
-	configRepo      string
-	configVersion   string
 	pipelineVersion string
 	nextflowConfig  string
 	nextflowProfile string
@@ -45,6 +43,8 @@ var (
 			return nil
 		},
 		Run: func(cmd *cobra.Command, args []string) {
+			configRepo := viper.GetString("config-repo")
+			configVersion := viper.GetString("config-version")
 			configDir := viper.GetString("config-home")
 			pipeline, err := plumber.ParsePipelineName(args[0])
 			pipeline.Revision = pipelineVersion
@@ -112,8 +112,6 @@ var (
 )
 
 func init() {
-	runCmd.Flags().StringVarP(&configRepo, "config-repo", "", "", "URL or path to the config file git repository")
-	runCmd.Flags().StringVarP(&configVersion, "config-version", "", "", "tag/branch/commit of the config files to use")
 	runCmd.Flags().StringVarP(&pipelineVersion, "version", "", "main", "tag/branch/commit of the pipeline to run")
 	runCmd.Flags().StringVarP(&nextflowConfig, "config", "c", "", "name of config to use (defult: \"<org>-<pipeline>-<revision>\")")
 	runCmd.Flags().StringVarP(&nextflowWorkdir, "workdir", "d", ".", "directory where the pipeline should be executed")
