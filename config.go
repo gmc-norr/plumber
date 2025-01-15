@@ -1,6 +1,7 @@
 package plumber
 
 import (
+	"crypto/md5"
 	"errors"
 	"fmt"
 	"io"
@@ -111,6 +112,14 @@ func (p PlumberFile) Validate() error {
 		}
 	}
 	return nil
+}
+
+func (p PlumberFile) Hash() [16]byte {
+	if !p.singlePipeline() {
+		slog.Warn("not a pipeline-specific config")
+	}
+	s := fmt.Sprintf("%s-%s-%s-%s", p.Source, p.Revision, p.Pipelines[0].Pipeline.Repo, p.Pipelines[0].Version)
+	return md5.Sum([]byte(s))
 }
 
 func (p PlumberFile) Write() error {

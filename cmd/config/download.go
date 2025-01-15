@@ -12,7 +12,6 @@ import (
 )
 
 var (
-	downloadName  string
 	downloadForce bool
 
 	downloadCmd = &cobra.Command{
@@ -25,34 +24,29 @@ var (
 			configRepo := viper.GetString("config-repo")
 			configVersion := viper.GetString("config-version")
 			configDir := viper.GetString("config-home")
-			if downloadName == "" {
-				pipeline, err := plumber.ParsePipelineName(args[0])
-				if err != nil {
-					slog.Error("invalid pipeline name", "error", err)
-					os.Exit(1)
-				}
-				downloadName = fmt.Sprintf("%s-%s", pipeline.String(), args[1])
-			}
 			repo, err := plumber.NewGitRepo(configRepo)
 			if err != nil {
 				slog.Error("error initialising git repo", "error", err)
 				os.Exit(1)
 			}
-			path := filepath.Join(configDir, downloadName)
 			slog.Debug("flags", "repo", configRepo, "version", configVersion)
 			pipeline, err := plumber.ParsePipelineName(args[0])
 			if err != nil {
 				slog.Error("error parsing pipeline name", "error", err)
 				os.Exit(1)
 			}
+
 			pf := plumber.NewPlumberFile()
 			pf.Source = repo.Url.String()
 			pf.Revision = configVersion
-			pf.Path = path
 			pf.Pipelines = append(pf.Pipelines, plumber.PipelineConfigMetadata{
 				Pipeline: pipeline,
 				Version:  args[1],
 			})
+
+			h := pf.Hash()
+			pf.Path = filepath.Join(configDir, fmt.Sprintf("%x", h))
+
 			if pf.Exists() && !downloadForce {
 				slog.Error("config already exists", "path", pf.Path)
 				os.Exit(1)
@@ -67,6 +61,5 @@ var (
 )
 
 func init() {
-	downloadCmd.Flags().StringVarP(&downloadName, "name", "n", "", "local config name to use")
-	downloadCmd.Flags().BoolVarP(&downloadForce, "force", "f", false, "local config name to use")
+	downloadCmd.Flags().BoolVarP(&downloadForce, "force", "f", false, "overwrite existing config")
 }

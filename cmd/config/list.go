@@ -54,8 +54,8 @@ var (
 				os.Exit(1)
 			}
 			didError := false
-			fmt.Fprint(tw, "name\tpipeline\tversion\tengine\tsource-repo\trevision\n")
-			fmt.Fprint(tw, "====\t========\t=======\t======\t===========\t========\n")
+			fmt.Fprint(tw, "id\tpipeline\tversion\tengine\tsource-repo\trevision\n")
+			fmt.Fprint(tw, "==\t========\t=======\t======\t===========\t========\n")
 			for _, f := range files {
 				if !f.IsDir() {
 					continue
