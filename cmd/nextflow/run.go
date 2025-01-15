@@ -61,7 +61,7 @@ var (
 			slog.Debug("attempting to read config", "path", path)
 			pf, err := plumber.ReadPlumberFile(path)
 			if err != nil {
-				slog.Debug("no existing config found, attempting download")
+				slog.Info("no existing config found, attempting download")
 				if configRepo == "" {
 					slog.Error("no config found, and no repo given")
 					os.Exit(1)

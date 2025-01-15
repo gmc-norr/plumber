@@ -2,6 +2,7 @@ package config
 
 import (
 	"errors"
+	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -32,6 +33,6 @@ var rmCmd = &cobra.Command{
 			slog.Error("error removing config", "config", args[0], "error", err.Error())
 			os.Exit(1)
 		}
-		slog.Info("removed config", "name", args[0], "path", path)
+		slog.Info("removed config", "id", fmt.Sprintf("%x", pf.Hash()), "path", path)
 	},
 }
