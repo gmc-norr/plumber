@@ -236,7 +236,7 @@ func DownloadConfig(repo GitRepo, repoVersion string, plumberFile *PlumberFile) 
 	}()
 
 	var pipelineData *PipelineConfigMetadata
-	slog.Debug("looking for pipeline", "pipeline", plumberFile.Pipelines[0].Pipeline)
+	slog.Debug("looking for pipeline config", "pipeline", plumberFile.Pipelines[0].Pipeline)
 	nameIdx := -1
 	for i, p := range pf.Pipelines {
 		if p.Pipeline.Repo == plumberFile.Pipelines[0].Pipeline.Repo {

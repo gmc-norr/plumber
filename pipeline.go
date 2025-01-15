@@ -195,7 +195,7 @@ func (p *NextflowPipeline) Run(profile string, extraArgs []string) error {
 		return err
 	}
 
-	slog.Info("running command", "cmd", cmd.String())
+	slog.Debug("running command", "cmd", cmd.String())
 	if err := cmd.Start(); err != nil {
 		return err
 	}
