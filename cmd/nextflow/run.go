@@ -1,6 +1,7 @@
 package nextflow
 
 import (
+	"crypto/md5"
 	"fmt"
 	"log/slog"
 	"os"
@@ -55,11 +56,9 @@ var (
 				slog.Error("pipeline not found", "name", args[0], "error", err.Error())
 				os.Exit(1)
 			}
-			if nextflowConfig == "" {
-				nextflowConfig = fmt.Sprintf("%s-%s", pipeline.String(), pipelineVersion)
-			}
-			slog.Debug("attempting to read config", "path", filepath.Join(configDir, nextflowConfig))
-			path := filepath.Join(configDir, nextflowConfig)
+			h := md5.Sum([]byte(fmt.Sprintf("%s-%s-%s-%s", configRepo, configVersion, pipeline.Repo, pipelineVersion)))
+			path := filepath.Join(configDir, fmt.Sprintf("%x", h))
+			slog.Debug("attempting to read config", "path", path)
 			pf, err := plumber.ReadPlumberFile(path)
 			if err != nil {
 				slog.Debug("no existing config found, attempting download")
@@ -93,11 +92,11 @@ var (
 			if configRepo != "" && pf.Source != configRepo {
 				slog.Warn("--config-repo doesn't match with loaded config, versions might mismatch", "config-repo", configRepo, "config", pf.Pipelines[0].Pipeline.Repo)
 			}
-			if configVersion != "" && pf.Pipelines[0].Version != configVersion {
+			if configVersion != "" && pf.Revision != configVersion {
 				// TODO: If the config versions are different, then a new config should be
 				// downloaded to ensure that you're working on what you think you are working on.
 				// This will require a change when it comes to how the directory names are generated.
-				slog.Warn("config versions differ", "requested", configVersion, "existing", pf.Pipelines[0].Version)
+				slog.Warn("config versions differ", "requested", configVersion, "existing", pf.Revision)
 			}
 			slog.Debug("nextflow config", "path", pf.Path, "version", pf.Pipelines[0].Version)
 
