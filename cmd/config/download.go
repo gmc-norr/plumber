@@ -11,55 +11,52 @@ import (
 	"github.com/spf13/viper"
 )
 
-var (
-	downloadForce bool
+var downloadCmd = &cobra.Command{
+	Use:   "download PIPELINE VERSION",
+	Short: "Download config files for a specific version of a pipeline",
+	Args: func(cmd *cobra.Command, args []string) error {
+		return cobra.ExactArgs(2)(cmd, args)
+	},
+	Run: func(cmd *cobra.Command, args []string) {
+		configRepo, _ := cmd.Flags().GetString("config-repo")
+		configVersion, _ := cmd.Flags().GetString("config-version")
+		configDir := viper.GetString("config-home")
+		forceDownload, _ := cmd.Flags().GetBool("force")
+		repo, err := plumber.NewGitRepo(configRepo)
+		if err != nil {
+			slog.Error("error initialising git repo", "error", err)
+			os.Exit(1)
+		}
+		slog.Debug("flags", "repo", configRepo, "version", configVersion)
+		pipeline, err := plumber.ParsePipelineName(args[0])
+		if err != nil {
+			slog.Error("error parsing pipeline name", "error", err)
+			os.Exit(1)
+		}
 
-	downloadCmd = &cobra.Command{
-		Use:   "download PIPELINE VERSION",
-		Short: "Download config files for a specific version of a pipeline",
-		Args: func(cmd *cobra.Command, args []string) error {
-			return cobra.ExactArgs(2)(cmd, args)
-		},
-		Run: func(cmd *cobra.Command, args []string) {
-			configRepo := viper.GetString("config-repo")
-			configVersion := viper.GetString("config-version")
-			configDir := viper.GetString("config-home")
-			repo, err := plumber.NewGitRepo(configRepo)
-			if err != nil {
-				slog.Error("error initialising git repo", "error", err)
-				os.Exit(1)
-			}
-			slog.Debug("flags", "repo", configRepo, "version", configVersion)
-			pipeline, err := plumber.ParsePipelineName(args[0])
-			if err != nil {
-				slog.Error("error parsing pipeline name", "error", err)
-				os.Exit(1)
-			}
+		pf := plumber.NewPlumberFile()
+		pf.Source = repo.Url.String()
+		pf.Revision = configVersion
+		pf.Pipelines = append(pf.Pipelines, plumber.PipelineConfigMetadata{
+			Pipeline: pipeline,
+			Version:  args[1],
+		})
 
-			pf := plumber.NewPlumberFile()
-			pf.Source = repo.Url.String()
-			pf.Revision = configVersion
-			pf.Pipelines = append(pf.Pipelines, plumber.PipelineConfigMetadata{
-				Pipeline: pipeline,
-				Version:  args[1],
-			})
+		h := pf.Hash()
+		pf.Path = filepath.Join(configDir, fmt.Sprintf("%x", h))
 
-			h := pf.Hash()
-			pf.Path = filepath.Join(configDir, fmt.Sprintf("%x", h))
-
-			if pf.Exists() && !downloadForce {
-				slog.Error("config already exists", "path", pf.Path)
-				os.Exit(1)
-			}
-			if err := plumber.DownloadConfig(repo, configVersion, &pf); err != nil {
-				slog.Error("error downloading config", "error", err.Error())
-				os.Exit(1)
-			}
-			slog.Info("pipeline config downloaded", "engine", pf.Pipelines[0].Engine, "name", pf.Pipelines[0].Pipeline, "path", pf.Path)
-		},
-	}
-)
+		if pf.Exists() && !forceDownload {
+			slog.Error("config already exists", "path", pf.Path)
+			os.Exit(1)
+		}
+		if err := plumber.DownloadConfig(repo, configVersion, &pf); err != nil {
+			slog.Error("error downloading config", "error", err.Error())
+			os.Exit(1)
+		}
+		slog.Info("pipeline config downloaded", "engine", pf.Pipelines[0].Engine, "name", pf.Pipelines[0].Pipeline, "path", pf.Path)
+	},
+}
 
 func init() {
-	downloadCmd.Flags().BoolVarP(&downloadForce, "force", "f", false, "overwrite existing config")
+	downloadCmd.Flags().BoolP("force", "f", false, "overwrite existing config")
 }
