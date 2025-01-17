@@ -51,11 +51,6 @@ var (
 			if err != nil {
 				slog.Error("error parsing pipeline name", "error", err.Error())
 			}
-			// Check that a pipeline with this revision exists on Github
-			if err := pipeline.Check(); err != nil {
-				slog.Error("pipeline not found", "name", args[0], "error", err.Error())
-				os.Exit(1)
-			}
 			h := md5.Sum([]byte(fmt.Sprintf("%s-%s-%s-%s", configRepo, configVersion, pipeline.Repo, pipelineVersion)))
 			path := filepath.Join(configDir, fmt.Sprintf("%x", h))
 			slog.Debug("attempting to read config", "path", path)

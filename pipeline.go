@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"fmt"
 	"log/slog"
-	"net/http"
 	"os"
 	"os/exec"
 	"strings"
@@ -71,58 +70,6 @@ func ParsePipelineName(name string) (Pipeline, error) {
 	pn.Pipeline = nameFrags[1]
 
 	return pn, nil
-}
-
-// CheckPipeline queries the Github API to see whether the pipeline exists.
-//
-// If the environmet variable PLUMBER_GITHUB_TOKEN is defined, this will be
-// used for authentication. If it is missing, and unauthenticated request will
-// be made. If the response is http.StatusForbidden, it is probably due to the
-// rate limit being exceeded, and the check will return with a warning being
-// logged, but without error. If the response is http.StatusUnauthorized, the
-// token is invalid and an error will be returned. If the response is
-// http.StatusOK, and the revision in question is found, nil will be returned.
-func (p Pipeline) Check() error {
-	client := &http.Client{}
-
-	slog.Info("checking repo", "name", p.Repo, "revision", p.Revision)
-
-	url := fmt.Sprintf("https://api.github.com/repos/%s", p.Repo)
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return err
-	}
-	if githubToken, ok := os.LookupEnv("PLUMBER_GITHUB_TOKEN"); ok {
-		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", githubToken))
-	}
-	r, err := client.Do(req)
-	if err != nil {
-		return err
-	}
-	if r.StatusCode == http.StatusUnauthorized {
-		return fmt.Errorf("invalid github token")
-	} else if r.StatusCode == http.StatusForbidden {
-		slog.Warn("status check forbidden, skipping", "status", r.Status, "tips", "define PLUMBER_GITHUB_TOKEN to increase github API rate limit")
-		return nil
-	} else if r.StatusCode != http.StatusOK {
-		return fmt.Errorf("status: %s", r.Status)
-	}
-
-	// Check if rev is a valid commit tag/branch/hash
-	commitUrl := url + "/commits/" + p.Revision
-	commitReq, err := http.NewRequest("GET", commitUrl, nil)
-	if err != nil {
-		return err
-	}
-	commitReq.Header = req.Header
-	if r, err := client.Do(commitReq); err == nil && r.StatusCode == http.StatusOK {
-		slog.Info("rev is valid", "revision", p.Revision)
-		return nil
-	} else if r.StatusCode == http.StatusUnprocessableEntity {
-		slog.Warn("possibly ambiguous commit hash, try something longer", "hash", p.Revision)
-	}
-
-	return fmt.Errorf("revision not found: %s", p.Revision)
 }
 
 // NextflowPipeline represents a Nextflow pipeline.
