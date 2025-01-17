@@ -43,8 +43,8 @@ var (
 			return nil
 		},
 		Run: func(cmd *cobra.Command, args []string) {
-			configRepo := viper.GetString("config-repo")
-			configVersion := viper.GetString("config-version")
+			configRepo, _ := cmd.Flags().GetString("config-repo")
+			configVersion, _ := cmd.Flags().GetString("config-version")
 			configDir := viper.GetString("config-home")
 			pipeline, err := plumber.ParsePipelineName(args[0])
 			pipeline.Revision = pipelineVersion
