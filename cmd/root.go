@@ -29,7 +29,6 @@ func initConfig() {
 
 	viper.MustBindEnv("config-home", "PLUMBER_CONFIG_HOME")
 	viper.MustBindEnv("log-level", "PLUMBER_LOGLEVEL")
-	viper.MustBindEnv("github-token", "PLUMBER_GITHUB_TOKEN")
 
 	if err := logger(); err != nil {
 		slog.Error(err.Error())
