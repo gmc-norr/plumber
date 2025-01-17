@@ -13,10 +13,7 @@ import (
 )
 
 var (
-	pipelineVersion string
-	nextflowProfile string
-	nextflowWorkdir string
-	nextflowArgs    []string
+	nextflowArgs []string
 
 	runCmd = &cobra.Command{
 		Use:   "run PIPELINE",
@@ -46,11 +43,11 @@ var (
 			configVersion, _ := cmd.Flags().GetString("config-version")
 			configDir := viper.GetString("config-home")
 			pipeline, err := plumber.ParsePipelineName(args[0])
-			pipeline.Revision = pipelineVersion
+			pipeline.Revision, _ = cmd.Flags().GetString("version")
 			if err != nil {
 				slog.Error("error parsing pipeline name", "error", err.Error())
 			}
-			h := md5.Sum([]byte(fmt.Sprintf("%s-%s-%s-%s", configRepo, configVersion, pipeline.Repo, pipelineVersion)))
+			h := md5.Sum([]byte(fmt.Sprintf("%s-%s-%s-%s", configRepo, configVersion, pipeline.Repo, pipeline.Revision)))
 			path := filepath.Join(configDir, fmt.Sprintf("%x", h))
 			slog.Debug("attempting to read config", "path", path)
 			pf, err := plumber.ReadPlumberFile(path)
@@ -88,8 +85,9 @@ var (
 
 			nfPipeline := plumber.NewNextflowPipeline(pf)
 			nfPipeline.SetEnv("PLUMBER_ASSETS_PATH", filepath.Join(pf.Path, "assets"))
-			nfPipeline.Workdir = nextflowWorkdir
-			if err := nfPipeline.Run(nextflowProfile, nextflowArgs); err != nil {
+			nfPipeline.Workdir, _ = cmd.Flags().GetString("workdir")
+			profiles, _ := cmd.Flags().GetString("profile")
+			if err := nfPipeline.Run(profiles, nextflowArgs); err != nil {
 				slog.Error("error running pipeline", "error", err.Error())
 				os.Exit(1)
 			}
@@ -98,7 +96,7 @@ var (
 )
 
 func init() {
-	runCmd.Flags().StringVarP(&pipelineVersion, "version", "", "main", "tag/branch/commit of the pipeline to run")
-	runCmd.Flags().StringVarP(&nextflowWorkdir, "workdir", "d", ".", "directory where the pipeline should be executed")
-	runCmd.Flags().StringVarP(&nextflowProfile, "profile", "p", "", "comma-separated list of profiles to use for the execution")
+	runCmd.Flags().StringP("version", "", "main", "tag/branch/commit of the pipeline to run")
+	runCmd.Flags().StringP("workdir", "d", ".", "directory where the pipeline should be executed")
+	runCmd.Flags().StringP("profile", "p", "", "comma-separated list of profiles to use for the execution")
 }
