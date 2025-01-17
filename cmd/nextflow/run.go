@@ -89,15 +89,7 @@ var (
 			} else {
 				slog.Info("using existing config", "path", pf.Path, "version", pf.Pipelines[0].Version)
 			}
-			if configRepo != "" && pf.Source != configRepo {
-				slog.Warn("--config-repo doesn't match with loaded config, versions might mismatch", "config-repo", configRepo, "config", pf.Pipelines[0].Pipeline.Repo)
-			}
-			if configVersion != "" && pf.Revision != configVersion {
-				// TODO: If the config versions are different, then a new config should be
-				// downloaded to ensure that you're working on what you think you are working on.
-				// This will require a change when it comes to how the directory names are generated.
-				slog.Warn("config versions differ", "requested", configVersion, "existing", pf.Revision)
-			}
+
 			slog.Debug("nextflow config", "path", pf.Path, "version", pf.Pipelines[0].Version)
 
 			nfPipeline := plumber.NewNextflowPipeline(pf)
