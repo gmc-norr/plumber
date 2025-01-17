@@ -62,7 +62,7 @@ func logger() error {
 var rootCmd = &cobra.Command{
 	Use:     "plumber",
 	Short:   "Run pipelines",
-	Version: "0.1.0", // x-release-please-version
+	Version: version,
 }
 
 func init() {

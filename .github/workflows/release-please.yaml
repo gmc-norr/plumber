@@ -3,14 +3,30 @@ on:
     branches:
       - main
 
+permissions:
+  contents: write
+  pull-requests: write
+
 name: release-please
+
 jobs:
   release-please:
     runs-on: ubuntu-latest
     steps:
-      - uses: google-github-actions/release-please-action@v3
+      - uses: google-github-actions/release-please-action@v4
+        id: release
         with:
-          release-type: go
-          package-name: ${{ github.event.repository.name }}
-          bump-minor-pre-major: true
-          extra-files: embed.go
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+      - uses: actions/checkout@v4
+        if: ${{ steps.release.outputs.release_created }}
+        with:
+          fetch-depth: 0
+      - name: build linux binary
+        if: ${{ steps.release.outputs.release_created }}
+        run: make linux
+      - name: attach linux binary to release
+        if: ${{ steps.release.outputs.release_created }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload ${{ steps.release.outputs.tag_name }} ./bin/plumber-linux-amd64
