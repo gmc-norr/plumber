@@ -14,7 +14,6 @@ import (
 
 var (
 	pipelineVersion string
-	nextflowConfig  string
 	nextflowProfile string
 	nextflowWorkdir string
 	nextflowArgs    []string
@@ -100,7 +99,6 @@ var (
 
 func init() {
 	runCmd.Flags().StringVarP(&pipelineVersion, "version", "", "main", "tag/branch/commit of the pipeline to run")
-	runCmd.Flags().StringVarP(&nextflowConfig, "config", "c", "", "name of config to use (defult: \"<org>-<pipeline>-<revision>\")")
 	runCmd.Flags().StringVarP(&nextflowWorkdir, "workdir", "d", ".", "directory where the pipeline should be executed")
 	runCmd.Flags().StringVarP(&nextflowProfile, "profile", "p", "", "comma-separated list of profiles to use for the execution")
 }
