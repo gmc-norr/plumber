@@ -98,30 +98,33 @@ func (p *NextflowPipeline) SetEnv(key, value string) {
 func (p *NextflowPipeline) Run(profile string, extraArgs []string) error {
 	slog.Info("starting pipeline execution")
 	slog.Debug("settings", "plumber file", p.PlumberFile)
-	args := []string{
-		"run",
-		"-ansi-log", "false",
-		p.PlumberFile.Pipelines[0].Pipeline.Repo,
-		"-r",
-		p.PlumberFile.Pipelines[0].Version,
-	}
-	args = append(args, extraArgs...)
-	for _, paramsFile := range p.ParamFiles() {
-		args = append(args, "-params-file")
-		args = append(args, paramsFile)
+	var args []string
+	for _, configFile := range p.ConfigFiles() {
+		args = append(args, "-c", configFile)
 	}
 	for _, profileFile := range p.Profiles() {
-		args = append(args, "-c")
-		args = append(args, profileFile)
+		args = append(args, "-c", profileFile)
 	}
-	for _, configFile := range p.ConfigFiles() {
-		args = append(args, "-c")
-		args = append(args, configFile)
+
+	args = append(args,
+		"run",
+		"-ansi-log", "false",
+	)
+
+	for _, paramsFile := range p.ParamFiles() {
+		args = append(args, "-params-file", paramsFile)
 	}
 	if profile != "" {
 		args = append(args, "-profile")
 		args = append(args, profile)
 	}
+	args = append(args, extraArgs...)
+	args = append(args,
+		p.PlumberFile.Pipelines[0].Pipeline.Repo,
+		"-r",
+		p.PlumberFile.Pipelines[0].Version,
+	)
+
 	cmd := exec.Command("nextflow", args...)
 	cmd.Env = os.Environ()
 	for key, value := range p.Env {
