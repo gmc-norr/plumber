@@ -44,6 +44,7 @@ var (
 			configDir := viper.GetString("config-home")
 			pipeline, err := plumber.ParsePipelineName(args[0])
 			pipeline.Revision, _ = cmd.Flags().GetString("version")
+			noCleanup, _ := cmd.Flags().GetBool("no-cleanup")
 			if err != nil {
 				slog.Error("error parsing pipeline name", "error", err.Error())
 			}
@@ -91,6 +92,9 @@ var (
 				slog.Error("error running pipeline", "error", err.Error())
 				os.Exit(1)
 			}
+			if !noCleanup {
+				cobra.CheckErr(nfPipeline.Cleanup())
+			}
 		},
 	}
 )
@@ -99,4 +103,5 @@ func init() {
 	runCmd.Flags().StringP("version", "", "main", "tag/branch/commit of the pipeline to run")
 	runCmd.Flags().StringP("workdir", "d", ".", "directory where the pipeline should be executed")
 	runCmd.Flags().StringP("profile", "p", "", "comma-separated list of profiles to use for the execution")
+	runCmd.Flags().Bool("no-cleanup", false, "do not clean up intermediate files on successful execution")
 }

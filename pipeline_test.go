@@ -2,6 +2,8 @@ package plumber
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -33,5 +35,24 @@ func TestUnmarshalPipeline(t *testing.T) {
 	}
 	if p.Pipeline != "raredisease" {
 		t.Errorf("expected %s, got %s", "raredisease", p.Pipeline)
+	}
+}
+
+func TestNextflowCleanup(t *testing.T) {
+	pf := NewPlumberFile()
+	pipeline := NewNextflowPipeline(pf)
+	pipeline.Workdir, _ = os.MkdirTemp(os.TempDir(), "workdirtest")
+	workPath := filepath.Join(pipeline.Workdir, "work")
+	if err := os.Mkdir(workPath, 0o700); err != nil {
+		t.Error("failed to create test work directory")
+	}
+	if err := os.WriteFile(filepath.Join(workPath, "random.txt"), nil, 0o600); err != nil {
+		t.Error("failed to write test file in work directory")
+	}
+	if err := pipeline.Cleanup(); err != nil {
+		t.Error(err)
+	}
+	if _, err := os.Stat(workPath); err == nil {
+		t.Error("expected work directory to be gone")
 	}
 }
