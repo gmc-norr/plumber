@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -120,9 +121,9 @@ func (p *NextflowPipeline) Run(profile string, extraArgs []string) error {
 	}
 	args = append(args, extraArgs...)
 	args = append(args,
-		p.PlumberFile.Pipelines[0].Pipeline.Repo,
+		p.Pipelines[0].Pipeline.Repo,
 		"-r",
-		p.PlumberFile.Pipelines[0].Version,
+		p.Pipelines[0].Version,
 	)
 
 	cmd := exec.Command("nextflow", args...)
@@ -161,4 +162,20 @@ func (p *NextflowPipeline) Run(profile string, extraArgs []string) error {
 	}
 
 	return cmd.Wait()
+}
+
+// Cleanup removes intermediate files from previous executions.
+func (p *NextflowPipeline) Cleanup() error {
+	workPath := filepath.Join(p.Workdir, "work")
+	info, err := os.Stat(workPath)
+	if err != nil {
+		return fmt.Errorf("error checking work directory %s: %w", workPath, err)
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("not a directory: %s", workPath)
+	}
+	if err := os.RemoveAll(workPath); err != nil {
+		return fmt.Errorf("failed to delete work directory: %w", err)
+	}
+	return nil
 }
