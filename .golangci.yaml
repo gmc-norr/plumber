@@ -1,6 +1,5 @@
-version: 2
+version: "2"
 linters:
-  disable-all: true
   enable:
     - errcheck
     - govet
@@ -8,6 +7,6 @@ linters:
     - staticcheck
     - unused
 formatters:
-  disable-all: true
+  enable:
     - gofumpt
     - goimports
