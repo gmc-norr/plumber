@@ -14,7 +14,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-var PlumberFileFormatError = errors.New("invalid formatting of plumber file")
+var ErrPlumberFileFormat = errors.New("invalid formatting of plumber file")
 
 type PlumberFileNotFound struct {
 	Path          string
@@ -77,39 +77,39 @@ func (p *PipelineConfigMetadata) AddAssets(path string) {
 
 func (p PlumberFile) Validate() error {
 	if p.Version != 1 {
-		return fmt.Errorf("%w: plumber file version 1 is the only supported version", PlumberFileFormatError)
+		return fmt.Errorf("%w: plumber file version 1 is the only supported version", ErrPlumberFileFormat)
 	}
 	if len(p.Pipelines) == 0 {
-		return fmt.Errorf("%w: plumber file does not have any pipeline definitions", PlumberFileFormatError)
+		return fmt.Errorf("%w: plumber file does not have any pipeline definitions", ErrPlumberFileFormat)
 	}
 	for i, p := range p.Pipelines {
 		if p.Pipeline.Repo == "" {
-			return fmt.Errorf("%w: invalid name for pipeline %d: %q", PlumberFileFormatError, i, p.Pipeline.Repo)
+			return fmt.Errorf("%w: invalid name for pipeline %d: %q", ErrPlumberFileFormat, i, p.Pipeline.Repo)
 		}
 		if p.Engine == "" {
-			return fmt.Errorf("%w: invalid engine for pipeline %d: %q", PlumberFileFormatError, i, p.Engine)
+			return fmt.Errorf("%w: invalid engine for pipeline %d: %q", ErrPlumberFileFormat, i, p.Engine)
 		}
 		if p.Version == "" {
-			return fmt.Errorf("%w: invalid version for pipeline %d: %q", PlumberFileFormatError, i, p.Version)
+			return fmt.Errorf("%w: invalid version for pipeline %d: %q", ErrPlumberFileFormat, i, p.Version)
 		}
 		for _, path := range p.ParamFiles {
 			if !filepath.IsLocal(path) {
-				return fmt.Errorf("%w: param file paths must be relative", PlumberFileFormatError)
+				return fmt.Errorf("%w: param file paths must be relative", ErrPlumberFileFormat)
 			}
 		}
 		for _, path := range p.ConfigFiles {
 			if !filepath.IsLocal(path) {
-				return fmt.Errorf("%w: config file paths must be relative", PlumberFileFormatError)
+				return fmt.Errorf("%w: config file paths must be relative", ErrPlumberFileFormat)
 			}
 		}
 		for _, path := range p.Assets {
 			if !filepath.IsLocal(path) {
-				return fmt.Errorf("%w: asset paths must be relative", PlumberFileFormatError)
+				return fmt.Errorf("%w: asset paths must be relative", ErrPlumberFileFormat)
 			}
 		}
 		for _, path := range p.Profiles {
 			if !filepath.IsLocal(path) {
-				return fmt.Errorf("%w: profile paths must be relative", PlumberFileFormatError)
+				return fmt.Errorf("%w: profile paths must be relative", ErrPlumberFileFormat)
 			}
 		}
 	}
@@ -188,14 +188,18 @@ func ReadPlumberFile(directory string) (PlumberFile, error) {
 			}
 		}
 	}
-	defer f.Close()
+	defer func() {
+		if err := f.Close(); err != nil {
+			slog.Error("failed to close file", "path", path, "error", err)
+		}
+	}()
 	b, err := io.ReadAll(f)
 	if err != nil {
 		return pf, err
 	}
 	err = yaml.Unmarshal(b, &pf)
 	if err != nil {
-		return pf, fmt.Errorf("%w: %w", PlumberFileFormatError, err)
+		return pf, fmt.Errorf("%w: %w", ErrPlumberFileFormat, err)
 	}
 	pf.Path = directory
 	return pf, pf.Validate()
@@ -209,7 +213,11 @@ func ValidatePlumberYaml(path string) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() {
+		if err := f.Close(); err != nil {
+			slog.Error("failed to close file", "path", path, "error", err)
+		}
+	}()
 	b, err := io.ReadAll(f)
 	if err != nil {
 		return err
@@ -422,12 +430,20 @@ func copyFile(source, target string) error {
 	if err != nil {
 		return err
 	}
-	defer tf.Close()
+	defer func() {
+		if err := tf.Close(); err != nil {
+			slog.Error("failed to close file", "path", target, "error", err)
+		}
+	}()
 	sf, err := os.Open(source)
 	if err != nil {
 		return err
 	}
-	defer sf.Close()
+	defer func() {
+		if err := sf.Close(); err != nil {
+			slog.Error("failed to close file", "path", source, "error", err)
+		}
+	}()
 
 	_, err = io.Copy(tf, sf)
 	if err != nil {

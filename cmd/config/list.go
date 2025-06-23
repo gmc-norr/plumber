@@ -36,25 +36,37 @@ var listCmd = &cobra.Command{
 				os.Exit(1)
 			}
 
-			fmt.Fprint(tw, "pipeline\tversion\tengine\n")
-			fmt.Fprint(tw, "========\t=======\t======\n")
-			for _, pipeline := range pf.Pipelines {
-				fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n", pipeline.Pipeline.Repo, pipeline.Version, pipeline.Engine, pf.Source, pf.Revision)
+			if _, err := fmt.Fprint(tw, "pipeline\tversion\tengine\n"); err != nil {
+				slog.Error("failed to write header", "error", err)
 			}
-			tw.Flush()
+			if _, err := fmt.Fprint(tw, "========\t=======\t======\n"); err != nil {
+				slog.Error("failed to write header separator", "error", err)
+			}
+			for _, pipeline := range pf.Pipelines {
+				if _, err := fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n", pipeline.Pipeline.Repo, pipeline.Version, pipeline.Engine, pf.Source, pf.Revision); err != nil {
+					slog.Error("failed to write pipeline line", "error", err)
+				}
+			}
+			_ = tw.Flush()
 			return
 		}
 
 		configHome := viper.GetString("config-home")
-		fmt.Fprintf(os.Stdout, "# config home directory: %s\n", configHome)
+		if _, err := fmt.Fprintf(os.Stdout, "# config home directory: %s\n", configHome); err != nil {
+			slog.Error("failed to write config directory", "error", err)
+		}
 		files, err := os.ReadDir(configHome)
 		if err != nil {
 			slog.Error("error listing directories", "error", err.Error())
 			os.Exit(1)
 		}
 		didError := false
-		fmt.Fprint(tw, "id\tpipeline\tversion\tengine\tsource-repo\trevision\n")
-		fmt.Fprint(tw, "==\t========\t=======\t======\t===========\t========\n")
+		if _, err := fmt.Fprint(tw, "id\tpipeline\tversion\tengine\tsource-repo\trevision\n"); err != nil {
+			slog.Error("failed to write header", "error", err)
+		}
+		if _, err := fmt.Fprint(tw, "==\t========\t=======\t======\t===========\t========\n"); err != nil {
+			slog.Error("failed to write header separator", "error", err)
+		}
 		for _, f := range files {
 			if !f.IsDir() {
 				continue
@@ -71,10 +83,12 @@ var listCmd = &cobra.Command{
 					slog.Error("error initialising config", "config", f.Name(), "error", err, "directory", configDir)
 				}
 			} else {
-				fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\n", f.Name(), pf.Pipelines[0].Pipeline.Repo, pf.Pipelines[0].Version, pf.Pipelines[0].Engine, pf.Source, pf.Revision)
+				if _, err := fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\n", f.Name(), pf.Pipelines[0].Pipeline.Repo, pf.Pipelines[0].Version, pf.Pipelines[0].Engine, pf.Source, pf.Revision); err != nil {
+					slog.Error("failed to write config line", "error", err)
+				}
 			}
 		}
-		tw.Flush()
+		_ = tw.Flush()
 		if didError {
 			os.Exit(1)
 		}

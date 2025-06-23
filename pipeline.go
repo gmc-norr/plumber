@@ -121,9 +121,9 @@ func (p *NextflowPipeline) Run(profile string, extraArgs []string) error {
 	}
 	args = append(args, extraArgs...)
 	args = append(args,
-		p.PlumberFile.Pipelines[0].Pipeline.Repo,
+		p.Pipelines[0].Pipeline.Repo,
 		"-r",
-		p.PlumberFile.Pipelines[0].Version,
+		p.Pipelines[0].Version,
 	)
 
 	cmd := exec.Command("nextflow", args...)
