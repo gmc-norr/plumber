@@ -45,6 +45,27 @@ var (
 			pipeline, err := plumber.ParsePipelineName(args[0])
 			pipeline.Revision, _ = cmd.Flags().GetString("version")
 			noCleanup, _ := cmd.Flags().GetBool("no-cleanup")
+
+			webhookUrl := viper.GetString("webhook-url")
+			var webhook *plumber.Webhook
+			slog.Info("webhook config", "url", webhookUrl, "certs", viper.GetString("certs"))
+			if webhookUrl == "" {
+				slog.Info("no webhook url defined, won't send any information")
+			} else {
+				webhook = plumber.NewSt2Webhook(webhookUrl, viper.GetString("webhook-api-key"))
+				webhook.PlumberVersion = viper.GetString("plumber-version")
+				if viper.GetBool("webhook-no-verify") {
+					slog.Debug("disabling webhook TLS")
+					webhook.DisableTLSVerification()
+				} else if viper.GetString("certs") != "" {
+					slog.Debug("setting certificates for client", "path", viper.GetString("certs"))
+					err := webhook.SetCertificates(viper.GetString("certs"))
+					cobra.CheckErr(err)
+				}
+			}
+
+			slog.Debug("webhook", "client", webhook)
+
 			if err != nil {
 				slog.Error("error parsing pipeline name", "error", err.Error())
 			}

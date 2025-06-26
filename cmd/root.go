@@ -31,6 +31,11 @@ func initConfig() {
 	viper.MustBindEnv("config-home", "PLUMBER_CONFIG_HOME")
 	viper.MustBindEnv("log-level", "PLUMBER_LOGLEVEL")
 
+	viper.MustBindEnv("certs", "PLUMBER_CERTS")
+	viper.MustBindEnv("webhook-url", "PLUMBER_WEBHOOK_URL")
+	viper.MustBindEnv("webhook-api-key", "PLUMBER_WEBHOOK_API_KEY")
+	viper.MustBindEnv("webhook-no-verify", "PLUMBER_WEBHOOK_NO_VERIFY")
+
 	if err := logger(); err != nil {
 		slog.Error(err.Error())
 		os.Exit(1)
@@ -74,6 +79,10 @@ func init() {
 
 	rootCmd.PersistentFlags().String("config-repo", "https://github.com/gmc-norr/config-files", "URL or path to the config file git repository")
 	rootCmd.PersistentFlags().String("config-version", "main", "Commitish representing the version of the config file repository to use")
+	rootCmd.PersistentFlags().String("certs", "", "Path to CA certificates to use for webhook TLS")
+	rootCmd.PersistentFlags().String("webhook-url", "", "Webhook URL where to send status updates")
+	rootCmd.PersistentFlags().String("webhook-api-key", "", "API key for the webhook")
+	rootCmd.PersistentFlags().Bool("webhook-no-verify", false, "Don't verify TLS certificates for webhooks (INSECURE)")
 	rootCmd.PersistentFlags().StringP("log-level", "l", "WARN", "log level")
 
 	_ = viper.BindPFlag("log-level", rootCmd.PersistentFlags().Lookup("log-level"))
