@@ -26,6 +26,7 @@ func initConfig() {
 
 	viper.SetDefault("config-home", filepath.Join(configHome, "plumber"))
 	viper.SetDefault("log-level", "WARN")
+	viper.Set("plumber-version", version)
 
 	viper.MustBindEnv("config-home", "PLUMBER_CONFIG_HOME")
 	viper.MustBindEnv("log-level", "PLUMBER_LOGLEVEL")
