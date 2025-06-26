@@ -80,8 +80,7 @@ var (
 					Success:         webhookErr == nil,
 					Error:           webhookErr,
 				}
-				err := webhook.Send(msg)
-				if err != nil {
+				if err := webhook.Send(msg); err != nil {
 					slog.Error("failed to send end message to webhook", "error", err)
 					os.Exit(1)
 				}
@@ -144,8 +143,7 @@ var (
 					MessageType:     plumber.MessageStart,
 					Success:         true,
 				}
-				err := webhook.Send(msg)
-				if err != nil {
+				if err := webhook.Send(msg); err != nil {
 					slog.Error("failed to send end message to webhook", "error", err)
 				}
 			}
@@ -160,8 +158,7 @@ var (
 						Success:         false,
 						Error:           err,
 					}
-					err := webhook.Send(msg)
-					if err != nil {
+					if err := webhook.Send(msg); err != nil {
 						slog.Error("failed to send end message to webhook", "error", err)
 					}
 				}
@@ -178,8 +175,7 @@ var (
 						MessageType:     plumber.MessageProgress,
 						Success:         true,
 					}
-					err := webhook.Send(msg)
-					if err != nil {
+					if err := webhook.Send(msg); err != nil {
 						slog.Error("failed to send progress message to webhook", "error", err)
 					}
 				}
@@ -194,8 +190,7 @@ var (
 					MessageType:     plumber.MessageEnd,
 					Success:         true,
 				}
-				err := webhook.Send(msg)
-				if err != nil {
+				if err := webhook.Send(msg); err != nil {
 					slog.Error("failed to send end message to webhook", "error", err)
 				}
 			}
