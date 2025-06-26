@@ -113,7 +113,7 @@ var (
 			if webhook != nil {
 				msg := plumber.WebhookMessage{
 					Pipeline:        nfPipeline.Pipelines[0].Pipeline.String(),
-					PipelineVersion: nfPipeline.Revision,
+					PipelineVersion: nfPipeline.Pipelines[0].Version,
 					Workdir:         nfPipeline.Workdir,
 					Message:         "pipeline started",
 					MessageType:     plumber.MessageStart,
@@ -128,7 +128,7 @@ var (
 				if webhook != nil {
 					msg := plumber.WebhookMessage{
 						Pipeline:        nfPipeline.Pipelines[0].Pipeline.String(),
-						PipelineVersion: nfPipeline.Revision,
+						PipelineVersion: nfPipeline.Pipelines[0].Version,
 						Workdir:         nfPipeline.Workdir,
 						Message:         "pipeline failed",
 						MessageType:     plumber.MessageEnd,
@@ -147,7 +147,7 @@ var (
 				if webhook != nil {
 					msg := plumber.WebhookMessage{
 						Pipeline:        nfPipeline.Pipelines[0].Pipeline.String(),
-						PipelineVersion: nfPipeline.Revision,
+						PipelineVersion: nfPipeline.Pipelines[0].Version,
 						Workdir:         nfPipeline.Workdir,
 						Message:         "cleaning up intermediate files",
 						MessageType:     plumber.MessageProgress,
@@ -163,7 +163,7 @@ var (
 			if webhook != nil {
 				msg := plumber.WebhookMessage{
 					Pipeline:        nfPipeline.Pipelines[0].Pipeline.String(),
-					PipelineVersion: nfPipeline.Revision,
+					PipelineVersion: nfPipeline.Pipelines[0].Version,
 					Workdir:         nfPipeline.Workdir,
 					Message:         "pipeline finished",
 					MessageType:     plumber.MessageEnd,
