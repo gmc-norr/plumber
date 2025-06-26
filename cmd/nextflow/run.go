@@ -55,7 +55,7 @@ var (
 				webhook = plumber.NewSt2Webhook(webhookUrl, viper.GetString("webhook-api-key"))
 				webhook.PlumberVersion = viper.GetString("plumber-version")
 				if viper.GetBool("webhook-no-verify") {
-					slog.Debug("disabling webhook TLS")
+					slog.Warn("disabling webhook TLS")
 					webhook.DisableTLSVerification()
 				} else if viper.GetString("certs") != "" {
 					slog.Debug("setting certificates for client", "path", viper.GetString("certs"))
