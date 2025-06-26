@@ -110,12 +110,69 @@ var (
 			nfPipeline.Workdir, _ = cmd.Flags().GetString("workdir")
 			nfPipeline.Workdir, _ = filepath.Abs(nfPipeline.Workdir)
 			profiles, _ := cmd.Flags().GetString("profile")
-			if err := nfPipeline.Run(profiles, nextflowArgs); err != nil {
+			if webhook != nil {
+				msg := plumber.WebhookMessage{
+					Pipeline:        nfPipeline.Pipelines[0].Pipeline.String(),
+					PipelineVersion: nfPipeline.Revision,
+					Workdir:         nfPipeline.Workdir,
+					Message:         "pipeline started",
+					MessageType:     plumber.MessageStart,
+					Success:         true,
+				}
+				err := webhook.Send(msg)
+				if err != nil {
+					slog.Error("failed to send end message to webhook", "error", err)
+				}
+			}
+			if err := nfPipeline.Run(profiles, nextflowArgs, webhook); err != nil {
+				if webhook != nil {
+					msg := plumber.WebhookMessage{
+						Pipeline:        nfPipeline.Pipelines[0].Pipeline.String(),
+						PipelineVersion: nfPipeline.Revision,
+						Workdir:         nfPipeline.Workdir,
+						Message:         "pipeline failed",
+						MessageType:     plumber.MessageEnd,
+						Success:         false,
+						Error:           err,
+					}
+					err := webhook.Send(msg)
+					if err != nil {
+						slog.Error("failed to send end message to webhook", "error", err)
+					}
+				}
 				slog.Error("error running pipeline", "error", err.Error())
 				os.Exit(1)
 			}
 			if !noCleanup {
+				if webhook != nil {
+					msg := plumber.WebhookMessage{
+						Pipeline:        nfPipeline.Pipelines[0].Pipeline.String(),
+						PipelineVersion: nfPipeline.Revision,
+						Workdir:         nfPipeline.Workdir,
+						Message:         "cleaning up intermediate files",
+						MessageType:     plumber.MessageProgress,
+						Success:         true,
+					}
+					err := webhook.Send(msg)
+					if err != nil {
+						slog.Error("failed to send progress message to webhook", "error", err)
+					}
+				}
 				cobra.CheckErr(nfPipeline.Cleanup())
+			}
+			if webhook != nil {
+				msg := plumber.WebhookMessage{
+					Pipeline:        nfPipeline.Pipelines[0].Pipeline.String(),
+					PipelineVersion: nfPipeline.Revision,
+					Workdir:         nfPipeline.Workdir,
+					Message:         "pipeline finished",
+					MessageType:     plumber.MessageEnd,
+					Success:         true,
+				}
+				err := webhook.Send(msg)
+				if err != nil {
+					slog.Error("failed to send end message to webhook", "error", err)
+				}
 			}
 		},
 	}

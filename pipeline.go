@@ -96,7 +96,7 @@ func (p *NextflowPipeline) SetEnv(key, value string) {
 }
 
 // Run a nextflow pipeline.
-func (p *NextflowPipeline) Run(profile string, extraArgs []string) error {
+func (p *NextflowPipeline) Run(profile string, extraArgs []string, webhook *Webhook) error {
 	slog.Info("starting pipeline execution")
 	slog.Debug("settings", "plumber file", p.PlumberFile)
 	var args []string
