@@ -41,14 +41,18 @@ func (t MessageType) String() string {
 	return "undefined"
 }
 
+func (t MessageType) MarshalJSON() ([]byte, error) {
+	return json.Marshal(t.String())
+}
+
 type WebhookMessage struct {
-	Pipeline        string
-	PipelineVersion string
-	Workdir         string
-	Message         string
-	MessageType     MessageType
-	Success         bool
-	Error           error
+	Pipeline        string      `json:"pipeline"`
+	PipelineVersion string      `json:"pipeline_version"`
+	Workdir         string      `json:"workdir"`
+	Message         string      `json:"message"`
+	MessageType     MessageType `json:"message_type"`
+	Success         bool        `json:"success"`
+	Error           error       `json:"error"`
 }
 
 func NewSt2Webhook(url string, apiKey string) *Webhook {
