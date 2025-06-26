@@ -39,6 +39,7 @@ var (
 			return nil
 		},
 		Run: func(cmd *cobra.Command, args []string) {
+			workdir, _ := cmd.Flags().GetString("workdir")
 			configRepo, _ := cmd.Flags().GetString("config-repo")
 			configVersion, _ := cmd.Flags().GetString("config-version")
 			configDir := viper.GetString("config-home")
@@ -46,7 +47,11 @@ var (
 			pipeline.Revision, _ = cmd.Flags().GetString("version")
 			noCleanup, _ := cmd.Flags().GetBool("no-cleanup")
 
+			workdir, _ = filepath.Abs(workdir)
+			slog.Debug("initialising plumber", "path", workdir)
+
 			webhookUrl := viper.GetString("webhook-url")
+			var webhookErr error
 			var webhook *plumber.Webhook
 			slog.Info("webhook config", "url", webhookUrl, "certs", viper.GetString("certs"))
 			if webhookUrl == "" {
@@ -59,12 +64,33 @@ var (
 					webhook.DisableTLSVerification()
 				} else if viper.GetString("certs") != "" {
 					slog.Debug("setting certificates for client", "path", viper.GetString("certs"))
-					err := webhook.SetCertificates(viper.GetString("certs"))
-					cobra.CheckErr(err)
+					webhookErr = webhook.SetCertificates(viper.GetString("certs"))
 				}
 			}
 
 			slog.Debug("webhook", "client", webhook)
+
+			if webhook != nil {
+				msg := plumber.WebhookMessage{
+					Pipeline:        pipeline.String(),
+					PipelineVersion: pipeline.Revision,
+					Workdir:         workdir,
+					Message:         "initialising plumber",
+					MessageType:     plumber.MessageInit,
+					Success:         webhookErr == nil,
+					Error:           webhookErr,
+				}
+				err := webhook.Send(msg)
+				if err != nil {
+					slog.Error("failed to send end message to webhook", "error", err)
+					os.Exit(1)
+				}
+			}
+
+			if webhookErr != nil {
+				slog.Error("failed to initialise webhook", "error", webhookErr)
+				os.Exit(1)
+			}
 
 			if err != nil {
 				slog.Error("error parsing pipeline name", "error", err.Error())
@@ -107,8 +133,7 @@ var (
 
 			nfPipeline := plumber.NewNextflowPipeline(pf)
 			nfPipeline.SetEnv("PLUMBER_ASSETS_PATH", filepath.Join(pf.Path, "assets"))
-			nfPipeline.Workdir, _ = cmd.Flags().GetString("workdir")
-			nfPipeline.Workdir, _ = filepath.Abs(nfPipeline.Workdir)
+			nfPipeline.Workdir = workdir
 			profiles, _ := cmd.Flags().GetString("profile")
 			if webhook != nil {
 				msg := plumber.WebhookMessage{

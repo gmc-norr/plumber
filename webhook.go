@@ -24,13 +24,16 @@ type Webhook struct {
 type MessageType int
 
 const (
-	MessageStart MessageType = iota
+	MessageInit MessageType = iota
+	MessageStart
 	MessageProgress
 	MessageEnd
 )
 
 func (t MessageType) String() string {
 	switch t {
+	case MessageInit:
+		return "init"
 	case MessageStart:
 		return "start"
 	case MessageProgress:
