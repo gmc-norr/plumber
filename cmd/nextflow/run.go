@@ -108,6 +108,7 @@ var (
 			nfPipeline := plumber.NewNextflowPipeline(pf)
 			nfPipeline.SetEnv("PLUMBER_ASSETS_PATH", filepath.Join(pf.Path, "assets"))
 			nfPipeline.Workdir, _ = cmd.Flags().GetString("workdir")
+			nfPipeline.Workdir, _ = filepath.Abs(nfPipeline.Workdir)
 			profiles, _ := cmd.Flags().GetString("profile")
 			if err := nfPipeline.Run(profiles, nextflowArgs); err != nil {
 				slog.Error("error running pipeline", "error", err.Error())
