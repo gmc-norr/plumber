@@ -105,7 +105,7 @@ var (
 					Error:           plumber.NewMarshableError(webhookErr),
 				}
 				if err := webhook.Send(msg); err != nil {
-					slog.Error("failed to send end message to webhook", "error", err)
+					slog.Error("failed to send init message to webhook, aborting", "error", err)
 					os.Exit(1)
 				}
 			}
