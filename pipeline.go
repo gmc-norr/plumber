@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
@@ -152,13 +153,39 @@ func (p *NextflowPipeline) Run(profile string, extraArgs []string, webhook *Webh
 	}
 
 	stdoutScanner := bufio.NewScanner(stdout)
-	for stdoutScanner.Scan() {
-		fmt.Println(stdoutScanner.Text())
-	}
+	go func() {
+		for stdoutScanner.Scan() {
+			fmt.Println(stdoutScanner.Text())
+		}
+	}()
 
 	stderrScanner := bufio.NewScanner(stderr)
-	for stderrScanner.Scan() {
-		fmt.Println(stderrScanner.Text())
+	go func() {
+		for stderrScanner.Scan() {
+			fmt.Println(stderrScanner.Text())
+		}
+	}()
+
+	if webhook != nil {
+		slog.Debug("setting up progress messages")
+		go func() {
+			startTime := time.Now()
+			ticker := time.NewTicker(10 * time.Minute)
+			msg := WebhookMessage{
+				Pipeline:        p.Pipelines[0].Pipeline.String(),
+				PipelineVersion: p.Pipelines[0].Version,
+				Workdir:         p.Workdir,
+				MessageType:     MessageProgress,
+			}
+			for {
+				t := <-ticker.C
+				msg.Time = t
+				msg.Message = fmt.Sprintf("execution in progress, elapsed time %s", time.Since(startTime))
+				if err := webhook.Send(msg); err != nil {
+					slog.Error("failed to send progress message to webhook", "error", err)
+				}
+			}
+		}()
 	}
 
 	return cmd.Wait()
