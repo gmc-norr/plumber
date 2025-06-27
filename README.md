@@ -40,6 +40,7 @@ Messages are sent as JSON with the following structure:
     "message_type": one of "init", "start", "end", "progress",
     "success": true if associated with a successful step, false otherwise,
     "error": the error encountered if success is false, otherwise null
+    "time": time when the message was sent
 }
 ```
 

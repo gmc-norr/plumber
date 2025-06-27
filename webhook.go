@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"time"
 )
 
 type Webhook struct {
@@ -73,6 +74,7 @@ type WebhookMessage struct {
 	MessageType     MessageType    `json:"message_type"`
 	Success         bool           `json:"success"`
 	Error           MarshableError `json:"error"`
+	Time            time.Time      `json:"time"`
 }
 
 func NewSt2Webhook(url string, apiKey string) *Webhook {
@@ -119,6 +121,11 @@ func (h *Webhook) SetCertificates(certs string) error {
 }
 
 func (h *Webhook) webhookRequest(payload any) (*http.Request, error) {
+	switch pt := payload.(type) {
+	case WebhookMessage:
+		pt.Time = time.Now()
+		payload = pt
+	}
 	jsonPayload, err := json.Marshal(payload)
 	if err != nil {
 		return nil, err
