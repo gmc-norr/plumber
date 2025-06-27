@@ -180,7 +180,10 @@ func (p *NextflowPipeline) Run(profile string, extraArgs []string, webhook *Webh
 			for {
 				t := <-ticker.C
 				msg.Time = t
-				msg.Message = fmt.Sprintf("execution in progress, elapsed time %s", time.Since(startTime))
+				msg.Message = ProgressMessage{
+					Message: "execution in progress",
+					Elapsed: time.Since(startTime).Round(time.Second).Seconds(),
+				}
 				if err := webhook.Send(msg); err != nil {
 					slog.Error("failed to send progress message to webhook", "error", err)
 				}

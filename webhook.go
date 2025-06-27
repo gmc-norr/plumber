@@ -70,11 +70,17 @@ type WebhookMessage struct {
 	Pipeline        string         `json:"pipeline"`
 	PipelineVersion string         `json:"pipeline_version"`
 	Workdir         string         `json:"workdir"`
-	Message         string         `json:"message"`
+	Message         any            `json:"message"`
 	MessageType     MessageType    `json:"message_type"`
 	Success         bool           `json:"success"`
 	Error           MarshableError `json:"error"`
 	Time            time.Time      `json:"time"`
+}
+
+type ProgressMessage struct {
+	Message string `json:"message"`
+	// Elapsed time in seconds
+	Elapsed float64 `json:"elapsed"`
 }
 
 func NewSt2Webhook(url string, apiKey string) *Webhook {
