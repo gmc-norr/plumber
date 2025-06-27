@@ -106,6 +106,7 @@ func (h *Webhook) webhookRequest(payload any) (*http.Request, error) {
 	if err != nil {
 		return nil, err
 	}
+	slog.Debug("webhook request", "url", h.URL, "payload", jsonPayload)
 	bodyReader := bytes.NewReader(jsonPayload)
 	r, err := http.NewRequest(h.Method, h.URL, bodyReader)
 	if err != nil {
@@ -119,7 +120,6 @@ func (h *Webhook) webhookRequest(payload any) (*http.Request, error) {
 
 func (h *Webhook) Send(payload any) error {
 	r, err := h.webhookRequest(payload)
-	slog.Debug("sending message to webhook", "url", h.URL, "payload", fmt.Sprintf("%v", payload))
 	if err != nil {
 		return fmt.Errorf("failed to create webhook request: %w", err)
 	}
@@ -127,12 +127,13 @@ func (h *Webhook) Send(payload any) error {
 	if err != nil {
 		return fmt.Errorf("webhook request failed: %w", err)
 	}
+	slog.Debug("webhook response", "url", h.URL, "status", res.Status)
 	if res.StatusCode != http.StatusOK {
 		body, err := io.ReadAll(res.Body)
 		if err != nil {
 			return fmt.Errorf("failed to read webhook response body: %w", err)
 		}
-		return fmt.Errorf("webhook request failed status=%s, body=%s", res.Status, body)
+		return fmt.Errorf("webhook denied: status=%s, body=%s", res.Status, body)
 	}
 	return nil
 }
