@@ -36,7 +36,7 @@ Messages are sent as JSON with the following structure:
     "pipeline": name of the pipeline,
     "pipeline_version": pipelinen version,
     "workdir": working directory for the execution,
-    "message": text message,
+    "message": a text message or an object,
     "message_type": one of "init", "start", "end", "progress",
     "success": true if associated with a successful step, false otherwise,
     "error": the error encountered if success is false, otherwise null
