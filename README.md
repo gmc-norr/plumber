@@ -20,6 +20,29 @@ Plumber is very much adapted to work with the [gmc-norr/config-files](https://gi
 
 - `PLUMBER_CONFIG_HOME`: Location where config files will be stored. Defaults to `${XDG_CONFIG_HOME}/plumber`, and if that is undefined `$HOME/.config/plumber`.
 - `PLUMBER_LOGLEVEL`: Controls verbosity of logs. Valid values are `debug`, `info`, `warn` and `error`. These are listed in decreasing level of verbosity. Default is `warn`.
+- `PLUMBER_WEBHOOK_URL`: URL to send webhook messages to.
+- `PLUMBER_WEBHOOK_API_KEY`: API key for the webhook endpoint (if needed).
+- `PLUMBER_WEBHOOK_NO_VERIFY`: Don't do TLS verification for the webhook requests.
+- `PLUMBER_CERTS`: Path to TLS certificates needed for the webhooks.
+
+## Webhooks
+
+Plumber can send progress messages to a webhook endpoint. This can be configured either on the command line or by environment variables. If a URL is set, the feature will be enabled.
+
+Messages are sent as JSON with the following structure:
+
+```txt
+{
+    "pipeline": name of the pipeline,
+    "pipeline_version": pipelinen version,
+    "workdir": working directory for the execution,
+    "message": a text message or an object,
+    "message_type": one of "init", "start", "end", "progress",
+    "success": true if associated with a successful step, false otherwise,
+    "error": the error encountered if success is false, otherwise null
+    "time": time when the message was sent
+}
+```
 
 ## Plumberfiles
 

@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"syscall"
 
 	"github.com/gmc-norr/plumber"
 	"github.com/spf13/cobra"
@@ -39,12 +41,80 @@ var (
 			return nil
 		},
 		Run: func(cmd *cobra.Command, args []string) {
+			workdir, _ := cmd.Flags().GetString("workdir")
 			configRepo, _ := cmd.Flags().GetString("config-repo")
 			configVersion, _ := cmd.Flags().GetString("config-version")
 			configDir := viper.GetString("config-home")
 			pipeline, err := plumber.ParsePipelineName(args[0])
 			pipeline.Revision, _ = cmd.Flags().GetString("version")
 			noCleanup, _ := cmd.Flags().GetBool("no-cleanup")
+
+			workdir, _ = filepath.Abs(workdir)
+			slog.Debug("initialising plumber", "path", workdir)
+
+			webhookUrl := viper.GetString("webhook-url")
+			var webhookErr error
+			var webhook *plumber.Webhook
+			slog.Info("webhook config", "url", webhookUrl, "certs", viper.GetString("certs"))
+			if webhookUrl == "" {
+				slog.Info("no webhook url defined, won't send any information")
+			} else {
+				webhook = plumber.NewSt2Webhook(webhookUrl, viper.GetString("webhook-api-key"))
+				webhook.PlumberVersion = viper.GetString("plumber-version")
+				if viper.GetBool("webhook-no-verify") {
+					slog.Warn("disabling webhook TLS")
+					webhook.DisableTLSVerification()
+				} else if viper.GetString("certs") != "" {
+					slog.Debug("setting certificates for client", "path", viper.GetString("certs"))
+					webhookErr = webhook.SetCertificates(viper.GetString("certs"))
+				}
+			}
+
+			slog.Debug("webhook", "client", webhook)
+			slog.Debug("setting up signal handler")
+			go func() {
+				c := make(chan os.Signal, 1)
+				signal.Notify(c, syscall.SIGTERM, syscall.SIGINT)
+				s := <-c
+				slog.Error("signal received, cleaning up and exiting", "signal", s)
+				if webhook != nil {
+					msg := plumber.WebhookMessage{
+						Pipeline:        pipeline.String(),
+						PipelineVersion: pipeline.Revision,
+						Workdir:         workdir,
+						Message:         fmt.Sprintf("process killed by signal: %s", s),
+						MessageType:     plumber.MessageEnd,
+						Success:         false,
+						Error:           plumber.NewMarshableError(fmt.Errorf("killed by signal %s", s)),
+					}
+					if err := webhook.Send(msg); err != nil {
+						slog.Error("failed to send end message to webhook", "error", err)
+					}
+				}
+				os.Exit(1)
+			}()
+
+			if webhook != nil {
+				msg := plumber.WebhookMessage{
+					Pipeline:        pipeline.String(),
+					PipelineVersion: pipeline.Revision,
+					Workdir:         workdir,
+					Message:         "initialising plumber",
+					MessageType:     plumber.MessageInit,
+					Success:         webhookErr == nil,
+					Error:           plumber.NewMarshableError(webhookErr),
+				}
+				if err := webhook.Send(msg); err != nil {
+					slog.Error("failed to send init message to webhook, aborting", "error", err)
+					os.Exit(1)
+				}
+			}
+
+			if webhookErr != nil {
+				slog.Error("failed to initialise webhook", "error", webhookErr)
+				os.Exit(1)
+			}
+
 			if err != nil {
 				slog.Error("error parsing pipeline name", "error", err.Error())
 			}
@@ -86,14 +156,67 @@ var (
 
 			nfPipeline := plumber.NewNextflowPipeline(pf)
 			nfPipeline.SetEnv("PLUMBER_ASSETS_PATH", filepath.Join(pf.Path, "assets"))
-			nfPipeline.Workdir, _ = cmd.Flags().GetString("workdir")
+			nfPipeline.Workdir = workdir
 			profiles, _ := cmd.Flags().GetString("profile")
-			if err := nfPipeline.Run(profiles, nextflowArgs); err != nil {
+			if webhook != nil {
+				msg := plumber.WebhookMessage{
+					Pipeline:        nfPipeline.Pipelines[0].Pipeline.String(),
+					PipelineVersion: nfPipeline.Pipelines[0].Version,
+					Workdir:         nfPipeline.Workdir,
+					Message:         "pipeline started",
+					MessageType:     plumber.MessageStart,
+					Success:         true,
+				}
+				if err := webhook.Send(msg); err != nil {
+					slog.Error("failed to send end message to webhook", "error", err)
+				}
+			}
+			if err := nfPipeline.Run(profiles, nextflowArgs, webhook); err != nil {
+				if webhook != nil {
+					msg := plumber.WebhookMessage{
+						Pipeline:        nfPipeline.Pipelines[0].Pipeline.String(),
+						PipelineVersion: nfPipeline.Pipelines[0].Version,
+						Workdir:         nfPipeline.Workdir,
+						Message:         "pipeline failed",
+						MessageType:     plumber.MessageEnd,
+						Success:         false,
+						Error:           plumber.NewMarshableError(err),
+					}
+					if err := webhook.Send(msg); err != nil {
+						slog.Error("failed to send end message to webhook", "error", err)
+					}
+				}
 				slog.Error("error running pipeline", "error", err.Error())
 				os.Exit(1)
 			}
 			if !noCleanup {
+				if webhook != nil {
+					msg := plumber.WebhookMessage{
+						Pipeline:        nfPipeline.Pipelines[0].Pipeline.String(),
+						PipelineVersion: nfPipeline.Pipelines[0].Version,
+						Workdir:         nfPipeline.Workdir,
+						Message:         "cleaning up intermediate files",
+						MessageType:     plumber.MessageProgress,
+						Success:         true,
+					}
+					if err := webhook.Send(msg); err != nil {
+						slog.Error("failed to send progress message to webhook", "error", err)
+					}
+				}
 				cobra.CheckErr(nfPipeline.Cleanup())
+			}
+			if webhook != nil {
+				msg := plumber.WebhookMessage{
+					Pipeline:        nfPipeline.Pipelines[0].Pipeline.String(),
+					PipelineVersion: nfPipeline.Pipelines[0].Version,
+					Workdir:         nfPipeline.Workdir,
+					Message:         "pipeline finished",
+					MessageType:     plumber.MessageEnd,
+					Success:         true,
+				}
+				if err := webhook.Send(msg); err != nil {
+					slog.Error("failed to send end message to webhook", "error", err)
+				}
 			}
 		},
 	}
