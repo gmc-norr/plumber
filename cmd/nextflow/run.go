@@ -82,10 +82,10 @@ var (
 						Pipeline:        pipeline.String(),
 						PipelineVersion: pipeline.Revision,
 						Workdir:         workdir,
-						Message:         "process killed by signal",
+						Message:         fmt.Sprintf("process killed by signal: %s", s),
 						MessageType:     plumber.MessageEnd,
 						Success:         false,
-						Error:           nil,
+						Error:           plumber.NewMarshableError(fmt.Errorf("killed by signal %s", s)),
 					}
 					if err := webhook.Send(msg); err != nil {
 						slog.Error("failed to send end message to webhook", "error", err)
@@ -102,7 +102,7 @@ var (
 					Message:         "initialising plumber",
 					MessageType:     plumber.MessageInit,
 					Success:         webhookErr == nil,
-					Error:           webhookErr,
+					Error:           plumber.NewMarshableError(webhookErr),
 				}
 				if err := webhook.Send(msg); err != nil {
 					slog.Error("failed to send end message to webhook", "error", err)
@@ -180,7 +180,7 @@ var (
 						Message:         "pipeline failed",
 						MessageType:     plumber.MessageEnd,
 						Success:         false,
-						Error:           err,
+						Error:           plumber.NewMarshableError(err),
 					}
 					if err := webhook.Send(msg); err != nil {
 						slog.Error("failed to send end message to webhook", "error", err)

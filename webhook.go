@@ -21,6 +21,10 @@ type Webhook struct {
 	PlumberVersion string
 }
 
+type MarshableError struct {
+	error
+}
+
 type MessageType int
 
 const (
@@ -48,14 +52,27 @@ func (t MessageType) MarshalJSON() ([]byte, error) {
 	return json.Marshal(t.String())
 }
 
+func NewMarshableError(err error) MarshableError {
+	return MarshableError{
+		error: err,
+	}
+}
+
+func (err MarshableError) MarshalJSON() ([]byte, error) {
+	if err.error == nil {
+		return json.Marshal(nil)
+	}
+	return json.Marshal(err.Error())
+}
+
 type WebhookMessage struct {
-	Pipeline        string      `json:"pipeline"`
-	PipelineVersion string      `json:"pipeline_version"`
-	Workdir         string      `json:"workdir"`
-	Message         string      `json:"message"`
-	MessageType     MessageType `json:"message_type"`
-	Success         bool        `json:"success"`
-	Error           error       `json:"error"`
+	Pipeline        string         `json:"pipeline"`
+	PipelineVersion string         `json:"pipeline_version"`
+	Workdir         string         `json:"workdir"`
+	Message         string         `json:"message"`
+	MessageType     MessageType    `json:"message_type"`
+	Success         bool           `json:"success"`
+	Error           MarshableError `json:"error"`
 }
 
 func NewSt2Webhook(url string, apiKey string) *Webhook {
