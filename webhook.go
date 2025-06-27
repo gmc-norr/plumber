@@ -113,6 +113,7 @@ func (h *Webhook) webhookRequest(payload any) (*http.Request, error) {
 	}
 	r.Header.Add(h.HeaderKey, h.APIKey)
 	r.Header.Add("X-Plumber-Version", h.PlumberVersion)
+	r.Header.Add("Content-Type", "application/json")
 	return r, nil
 }
 
