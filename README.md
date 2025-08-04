@@ -48,9 +48,9 @@ Messages are sent as JSON with the following structure:
 
 Plumber makes use of simple yaml metadata files called plumberfiles.
 These come in two flavours: one representing a collection of pipeline configurations and one representing the config for a single pipeline.
-They both have the same format.
-The difference is that the one representing a single pipeline has fields defining the origin of the configuration (a git repo) and what revision of that configuration was used.
-Another difference is that while plumberfile representing a collection of pipiline can contain one or more pipelines, the version representing a single pipeline can contain only one pipeline configuration.
+They both have the same format, but there are a couple of differences.
+Firstly, a plumberfile representing a single pipeline has fields defining the origin of the configuration (a git repo) and what revision of that configuration was used.
+Secondly, a plumberfile representing a collection of pipelines can contain one or more pipelines, the version representing a single pipeline must contain one, and only one, pipeline configuration.
 
 Plumber ships with a command for validating the format of a plumber file:
 
