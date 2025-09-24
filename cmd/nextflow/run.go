@@ -2,6 +2,7 @@ package nextflow
 
 import (
 	"crypto/md5"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -121,8 +122,12 @@ var (
 			h := md5.Sum([]byte(fmt.Sprintf("%s-%s-%s-%s", configRepo, configVersion, pipeline.Repo, pipeline.Revision)))
 			path := filepath.Join(configDir, fmt.Sprintf("%x", h))
 			slog.Debug("attempting to read config", "path", path)
-			pf, err := plumber.ReadPlumberFile(path)
+			pf, err := plumber.ReadPlumberFile(filepath.Join(path, plumber.PlumberFileName))
 			if err != nil {
+				if errors.Is(err, plumber.ErrPlumberFileFormat) {
+					slog.Error("plumberfile validation failed", "error", err)
+					os.Exit(1)
+				}
 				slog.Info("no existing config found, attempting download")
 				if configRepo == "" {
 					slog.Error("no config found, and no repo given")
@@ -132,9 +137,9 @@ var (
 					slog.Error("no config found, and no version given")
 					os.Exit(1)
 				}
-				pf = plumber.NewPlumberFile()
+				pf = plumber.PlumberFile{}
 				pf.Path = path
-				pf.Pipelines = append(pf.Pipelines, plumber.PipelineConfigMetadata{
+				pf.Pipelines = append(pf.Pipelines, plumber.PipelineMetadata{
 					Pipeline: pipeline,
 					Version:  pipeline.Revision,
 				})

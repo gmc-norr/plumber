@@ -36,18 +36,64 @@
                         "description": "pipeline engine",
                         "enum": ["nextflow", "snakemake"]
                     },
+                    "executor": {
+                        "type": "object",
+                        "required": ["name", "version"],
+                        "properties": {
+                            "name": {
+                                "description": "the binary that is used for executing the pipeline",
+                                "type": "string"
+                            },
+                            "version": {
+                                "description": "version of the binary that is used for executing the pipeline",
+                                "type": "string"
+                            }
+                        }
+                    },
                     "version": {
                         "description": "the pipeline version that this configuration supports",
                         "type": "string"
                     },
+                    "environment": {
+                        "description": "environment variables to pass to the execution",
+                        "type": "object",
+                        "patternProperties": {
+                            "^[A-Z0-9_]+$": {
+                                "type": "string",
+                                "minLength": 1
+                            }
+                        }
+                    },
+                    "args": {
+                        "descriptions": "arguments to pass on the command line",
+                        "type": "object",
+                        "patternProperties": {
+                            "^[A-Za-z0-9_-]+$": {
+                                "oneOf": [
+                                    {
+                                        "type": "string",
+                                        "minLength": 1
+                                    },
+                                    {
+                                        "type": "boolean"
+                                    },
+                                    {
+                                        "type": "array",
+                                        "minLength": 1,
+                                        "items": {
+                                            "oneOf": [
+                                                {"type": "string"},
+                                                {"type": "number"}
+                                            ]
+                                        }
+                                    }
+                                ]
+                            }
+                        }
+                    },
                     "profiles": {
                         "description": "profile definitions that should be available for pipeline execution",
-                        "type": "array",
-                        "items": {
-                            "description": "relative path to a profile, either a file or directory",
-                            "type": "string",
-                            "format": "uri-reference"
-                        }
+                        "type": "array"
                     },
                     "config_files": {
                         "description": "profile definitions that should be available for pipeline execution",
@@ -76,7 +122,65 @@
                             "format": "uri-reference"
                         }
                     }
-                }
+                },
+                "allOf": [
+                    {
+                        "if": {
+                            "properties": {
+                                "engine": {"const": "snakemake"}
+                            }
+                        },
+                        "then": {
+                            "required": ["executor"],
+                            "properties": {
+                                "profiles": {
+                                    "items": {
+                                        "description": "snakemake profile specification",
+                                        "type": "object",
+                                        "required": ["name", "profile", "config_files"],
+                                        "properties": {
+                                            "name": {
+                                                "description": "name of the profile",
+                                                "type": "string"
+                                            },
+                                            "profile": {
+                                                "description": "path to the snakemake profile directory",
+                                                "type": "string",
+                                                "format": "uri-reference"
+                                            },
+                                            "config_files": {
+                                                "description": "array of config files",
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "string",
+                                                    "format": "uri-reference"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    {
+                        "if": {
+                            "properties": {
+                                "engine": {"const": "nextflow"}
+                            }
+                        },
+                        "then": {
+                            "properties": {
+                                "profiles": {
+                                    "items": {
+                                        "type": "string",
+                                        "format": "uri-reference",
+                                        "minLength": 1
+                                    }
+                                }
+                            }
+                        }
+                    }
+                ]
             }
         }
     },

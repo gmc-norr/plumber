@@ -39,7 +39,7 @@ func TestUnmarshalPipeline(t *testing.T) {
 }
 
 func TestNextflowCleanup(t *testing.T) {
-	pf := NewPlumberFile()
+	var pf PlumberFile
 	pipeline := NewNextflowPipeline(pf)
 	pipeline.Workdir, _ = os.MkdirTemp(os.TempDir(), "workdirtest")
 	workPath := filepath.Join(pipeline.Workdir, "work")

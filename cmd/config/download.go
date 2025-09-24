@@ -34,10 +34,10 @@ var downloadCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		pf := plumber.NewPlumberFile()
+		var pf plumber.PlumberFile
 		pf.Source = repo.Url.String()
 		pf.Revision = configVersion
-		pf.Pipelines = append(pf.Pipelines, plumber.PipelineConfigMetadata{
+		pf.Pipelines = append(pf.Pipelines, plumber.PipelineMetadata{
 			Pipeline: pipeline,
 			Version:  args[1],
 		})
