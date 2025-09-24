@@ -105,7 +105,7 @@ func (p *NextflowPipeline) Run(profile string, extraArgs []string, webhook *Webh
 		args = append(args, "-c", configFile)
 	}
 	for _, profileFile := range p.Profiles() {
-		args = append(args, "-c", profileFile)
+		args = append(args, "-c", profileFile.Path)
 	}
 
 	args = append(args,
