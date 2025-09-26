@@ -61,10 +61,10 @@ var listCmd = &cobra.Command{
 			os.Exit(1)
 		}
 		didError := false
-		if _, err := fmt.Fprint(tw, "id\tpipeline\tversion\tengine\tsource-repo\trevision\n"); err != nil {
+		if _, err := fmt.Fprint(tw, "id\tpipeline\tversion\tengine\tsource-repo\trevision\tvalid\n"); err != nil {
 			slog.Error("failed to write header", "error", err)
 		}
-		if _, err := fmt.Fprint(tw, "==\t========\t=======\t======\t===========\t========\n"); err != nil {
+		if _, err := fmt.Fprint(tw, "==\t========\t=======\t======\t===========\t========\t=====\n"); err != nil {
 			slog.Error("failed to write header separator", "error", err)
 		}
 		for _, f := range files {
@@ -72,18 +72,22 @@ var listCmd = &cobra.Command{
 				continue
 			}
 			configDir := filepath.Join(configHome, f.Name())
-			pf, err := plumber.ReadPlumberFile(configDir)
+			pf, err := plumber.ReadPlumberFile(filepath.Join(configDir, plumber.PlumberFileName))
 			if err != nil {
 				var pfError plumber.PlumberFileNotFound
 				if errors.As(err, &pfError) {
 					// Ignore the directory if no plumber file is found
 					slog.Debug("no plumber file found", "error", err.Error())
-				} else {
+				} else if !errors.Is(err, plumber.ErrPlumberFileFormat) {
 					didError = true
 					slog.Error("error initialising config", "config", f.Name(), "error", err, "directory", configDir)
+				} else {
+					if _, err := fmt.Fprintf(tw, "%s\t\t\t\t%s\t%s\t%s\n", f.Name(), pf.Source, pf.Revision, "❌"); err != nil {
+						slog.Error("failed to write config line", "error", err)
+					}
 				}
 			} else {
-				if _, err := fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\n", f.Name(), pf.Pipelines[0].Pipeline.Repo, pf.Pipelines[0].Version, pf.Pipelines[0].Engine, pf.Source, pf.Revision); err != nil {
+				if _, err := fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n", f.Name(), pf.Pipelines[0].Pipeline.Repo, pf.Pipelines[0].Version, pf.Pipelines[0].Engine, pf.Source, pf.Revision, "✔️"); err != nil {
 					slog.Error("failed to write config line", "error", err)
 				}
 			}
