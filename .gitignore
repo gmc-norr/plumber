@@ -5,3 +5,4 @@ work
 .envrc
 samplesheet.csv
 /bin
+.snakemake
