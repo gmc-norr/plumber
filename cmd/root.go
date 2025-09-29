@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/gmc-norr/plumber/cmd/config"
+	"github.com/gmc-norr/plumber/cmd/hydra"
 	"github.com/gmc-norr/plumber/cmd/nextflow"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -75,6 +76,7 @@ func init() {
 
 	rootCmd.AddCommand(config.ConfigCmd)
 	rootCmd.AddCommand(nextflow.NextflowCmd)
+	rootCmd.AddCommand(hydra.HydraCmd)
 	rootCmd.AddCommand(initCmd)
 
 	rootCmd.PersistentFlags().String("config-repo", "https://github.com/gmc-norr/config-files", "URL or path to the config file git repository")

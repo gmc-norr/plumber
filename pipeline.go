@@ -2,7 +2,10 @@ package plumber
 
 import (
 	"bufio"
+	"bytes"
+	"context"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"os/exec"
@@ -61,7 +64,7 @@ func (n Pipeline) String() string {
 func ParsePipelineName(name string) (Pipeline, error) {
 	pn := Pipeline{Repo: name}
 	if !ValidPipelineName(name) {
-		return pn, fmt.Errorf("invalid pipeline name")
+		return pn, fmt.Errorf("invalid pipeline name: %q", name)
 	}
 
 	nameFrags := strings.Split(name, "/")
@@ -72,6 +75,203 @@ func ParsePipelineName(name string) (Pipeline, error) {
 	pn.Pipeline = nameFrags[1]
 
 	return pn, nil
+}
+
+// SnakemakePipeline represents a Snakemake pipeline.
+type SnakemakePipeline struct {
+	PlumberFile
+	Env        map[string]string
+	Workdir    string
+	Path       string
+	Downloaded bool
+	Installed  bool
+}
+
+// NewSnakemakePipeline creates a new Snakemake pipeline.
+func NewSnakemakePipeline(plumberFile PlumberFile) SnakemakePipeline {
+	if !plumberFile.singlePipeline() {
+		slog.Warn("plumberfile is not for a single pipeline, first pipline definition will be used")
+	}
+	p := SnakemakePipeline{
+		PlumberFile: plumberFile,
+		Env:         make(map[string]string, 0),
+	}
+	for k, v := range p.PlumberFile.Pipelines[0].Environment {
+		p.SetEnv(k, v)
+	}
+	return p
+}
+
+func (p *SnakemakePipeline) IsDownloaded() bool {
+	if _, err := os.Stat(p.Path); os.IsNotExist(err) {
+		return false
+	}
+	return true
+}
+
+func (p *SnakemakePipeline) Download() (err error) {
+	if p.IsDownloaded() {
+		p.Downloaded = true
+		return nil
+	}
+	if p.Path == "" {
+		return fmt.Errorf("pipeline path is missing")
+	}
+	cmd := exec.Command(
+		"git", "clone",
+		fmt.Sprintf(
+			"https://github.com/%s",
+			p.Pipelines[0].Pipeline.Repo,
+		),
+		p.Path,
+	)
+
+	defer func() {
+		if err != nil {
+			if info, err := os.Stat(p.Path); err == nil && info.IsDir() {
+				slog.Info("cleaning up potentially broken pipeline install", "path", p.Path)
+				err := os.RemoveAll(p.Path)
+				if err != nil {
+					slog.Error("failed to clean up pipeline, do it manually", "path", p.Path)
+				}
+			}
+		}
+	}()
+
+	slog.Info("downloading pipeline", "cmd", cmd.Args)
+	var errBuffer bytes.Buffer
+	cmd.Stderr = &errBuffer
+	err = cmd.Run()
+	if err != nil {
+		return fmt.Errorf("download failed: %s, %w", errBuffer.String(), err)
+	}
+
+	cmd = exec.Command("git", "checkout", p.Pipelines[0].Version)
+	errBuffer.Reset()
+	cmd.Stderr = &errBuffer
+	cmd.Dir = p.Path
+	slog.Info("checking out version", "cmd", cmd.Args)
+	err = cmd.Run()
+	if err != nil {
+		return fmt.Errorf("checkout failed: %s, %w", errBuffer.String(), err)
+	}
+	p.Downloaded = true
+	return nil
+}
+
+func (p *SnakemakePipeline) Install() error {
+	if !p.Downloaded {
+		return fmt.Errorf("pipeline has not been downloaded")
+	}
+	cmd := exec.Command("python", "-m", "pip", "install", "-r", "requirements.txt")
+	cmd.Dir = p.Path
+	for k, v := range p.Env {
+		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", k, v))
+	}
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return err
+	}
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		return err
+	}
+	slog.Info("installing pipeline", "cmd", cmd.Args, "env", cmd.Env, "workdir", cmd.Dir)
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	outScanner := bufio.NewScanner(io.MultiReader(stdout, stderr))
+	for outScanner.Scan() {
+		slog.Debug("install", "output", outScanner.Text())
+	}
+
+	if err := cmd.Wait(); err != nil {
+		return err
+	}
+
+	p.Installed = true
+	return nil
+}
+
+// SetEnv sets environment variables that should be accessible when running a Nextflow pipeline.
+func (p *SnakemakePipeline) SetEnv(key, value string) {
+	p.Env[key] = value
+}
+
+type LogWriter struct {
+	logger *slog.Logger
+	level  slog.Level
+}
+
+func NewLogWriter(logger *slog.Logger, level slog.Level) LogWriter {
+	return LogWriter{
+		logger: logger,
+		level:  level,
+	}
+}
+
+func (w LogWriter) Write(b []byte) (n int, err error) {
+	for line := range strings.SplitSeq(string(b), "\n") {
+		if strings.TrimSpace(line) != "" {
+			w.logger.Log(context.TODO(), w.level, line)
+		}
+	}
+	return len(b), nil
+}
+
+// Run a Snakemake pipeline
+func (p *SnakemakePipeline) Run(profileName string, extraArgs []string) error {
+	if profileName == "" {
+		return fmt.Errorf("missing profile")
+	}
+	slog.Debug("starting snakemake execution")
+	var availableProfiles []string
+	var profileConfig *Profile
+	for _, p := range p.Profiles() {
+		availableProfiles = append(availableProfiles, p.Name)
+		if p.Name == profileName {
+			profileConfig = &p
+		}
+	}
+	if profileConfig == nil {
+		return fmt.Errorf("profile not found: %s, available profiles: %v", profileName, availableProfiles)
+	}
+	configs := append(p.ConfigFiles(), profileConfig.ConfigFiles...)
+	args := []string{
+		"-s", "$PLUMBER_PIPELINE_HOME/workflow/Snakefile",
+		"--profile", profileConfig.Profile,
+		"--configfiles",
+	}
+	args = append(args, configs...)
+	args = append(args, p.Args()...)
+	args = append(args, extraArgs...)
+
+	cmd := exec.Command("snakemake", args...)
+	if p.Workdir != "" {
+		slog.Debug("setting working directory", "path", p.Workdir)
+		cmd.Dir = p.Workdir
+	}
+
+	for k, v := range p.Env {
+		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", k, v))
+		if err := os.Setenv(k, v); err != nil {
+			return err
+		}
+	}
+
+	for i, arg := range cmd.Args {
+		cmd.Args[i] = os.ExpandEnv(arg)
+	}
+
+	cmd.Stderr = NewLogWriter(slog.Default().With("executor", "snakemake", "output", "stderr"), slog.LevelInfo)
+	cmd.Stdout = NewLogWriter(slog.Default().With("executor", "snakemake", "output", "stdout"), slog.LevelInfo)
+
+	slog.Debug("executing pipeline", "cmd", cmd.String(), "env", cmd.Env)
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+
+	return cmd.Wait()
 }
 
 // NextflowPipeline represents a Nextflow pipeline.
