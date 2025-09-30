@@ -119,7 +119,7 @@ var (
 			if home, ok := os.LookupEnv("HOME"); ok {
 				smPipeline.SetEnv("HOME", home)
 			}
-			smPipeline.SetEnv("PLUMBER_ASSETS_PATH", filepath.Join(pf.Path, "assets"))
+			smPipeline.SetEnv("PLUMBER_PIPELINE_ASSETS", filepath.Join(pf.Path, "assets"))
 			smPipeline.SetEnv("PYENV_VERSION", env.Name)
 			smPipeline.SetEnv("PLUMBER_PIPELINE_HOME", smPipeline.Path)
 			smPipeline.SetEnv("PLUMBER_PIPELINE_CONFIG", smPipeline.PlumberFile.Path)

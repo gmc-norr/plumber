@@ -160,7 +160,7 @@ var (
 			slog.Debug("nextflow config", "path", pf.Path, "version", pf.Pipelines[0].Version)
 
 			nfPipeline := plumber.NewNextflowPipeline(pf)
-			nfPipeline.SetEnv("PLUMBER_ASSETS_PATH", filepath.Join(pf.Path, "assets"))
+			nfPipeline.SetEnv("PLUMBER_PIPELINE_ASSETS", filepath.Join(pf.Path, "assets"))
 			nfPipeline.Workdir = workdir
 			profiles, _ := cmd.Flags().GetString("profile")
 			if webhook != nil {
