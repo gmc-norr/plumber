@@ -396,10 +396,10 @@ func DownloadConfig(repo GitRepo, repoVersion string, plumberFile *PlumberFile) 
 
 	var pipelineData *PipelineMetadata
 	slog.Debug("looking for pipeline config", "pipeline", plumberFile.Pipelines[0].Pipeline)
-	nameIdx := -1
+	var nameIdx []int
 	for i, p := range pf.Pipelines {
 		if p.Pipeline.Repo == plumberFile.Pipelines[0].Pipeline.Repo {
-			nameIdx = i
+			nameIdx = append(nameIdx, i)
 			if p.Version == plumberFile.Pipelines[0].Version {
 				pipelineData = &p
 			}
@@ -408,8 +408,16 @@ func DownloadConfig(repo GitRepo, repoVersion string, plumberFile *PlumberFile) 
 
 	if pipelineData == nil {
 		msg := "pipeline not found in repo"
-		if nameIdx > -1 {
-			msg += fmt.Sprintf(", but different version was found: %s", pf.Pipelines[nameIdx].Version)
+		if len(nameIdx) > 0 {
+			var otherVersions []string
+			for _, i := range nameIdx {
+				otherVersions = append(otherVersions, pf.Pipelines[i].Version)
+			}
+			if len(otherVersions) == 1 {
+				msg += fmt.Sprintf(", but other version was found: %s", otherVersions[0])
+			} else {
+				msg += fmt.Sprintf(", but other versions were found: %s", strings.Join(otherVersions, ", "))
+			}
 		}
 		return fmt.Errorf("%s", msg)
 	}
