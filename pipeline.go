@@ -310,6 +310,9 @@ func (p *NextflowPipeline) Run(profile string, extraArgs []string, webhook *Webh
 
 	args = append(args,
 		"run",
+		p.Pipelines[0].Pipeline.Repo,
+		"-r",
+		p.Pipelines[0].Version,
 		"-ansi-log", "false",
 	)
 
@@ -321,11 +324,6 @@ func (p *NextflowPipeline) Run(profile string, extraArgs []string, webhook *Webh
 		args = append(args, profile)
 	}
 	args = append(args, extraArgs...)
-	args = append(args,
-		p.Pipelines[0].Pipeline.Repo,
-		"-r",
-		p.Pipelines[0].Version,
-	)
 
 	cmd := exec.Command("nextflow", args...)
 	cmd.Env = os.Environ()
