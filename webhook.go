@@ -158,7 +158,7 @@ func (h *Webhook) Send(payload any) error {
 		return fmt.Errorf("webhook request failed: %w", err)
 	}
 	slog.Debug("webhook response", "url", h.URL, "status", res.Status)
-	if res.StatusCode != http.StatusOK {
+	if res.StatusCode != http.StatusOK && res.StatusCode != http.StatusAccepted {
 		body, err := io.ReadAll(res.Body)
 		if err != nil {
 			return fmt.Errorf("failed to read webhook response body: %w", err)
