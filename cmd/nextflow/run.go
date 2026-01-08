@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 
 	"github.com/gmc-norr/plumber"
@@ -176,13 +177,13 @@ var (
 					slog.Error("failed to send end message to webhook", "error", err)
 				}
 			}
-			if err := nfPipeline.Run(profiles, nextflowArgs, webhook); err != nil {
+			if lastLogLines, err := nfPipeline.Run(profiles, nextflowArgs, webhook); err != nil {
 				if webhook != nil {
 					msg := plumber.WebhookMessage{
 						Pipeline:        nfPipeline.Pipelines[0].Pipeline.String(),
 						PipelineVersion: nfPipeline.Pipelines[0].Version,
 						Workdir:         nfPipeline.Workdir,
-						Message:         "pipeline failed",
+						Message:         fmt.Sprintf("pipeline failed, end of log: %v", strings.Join(lastLogLines, "\n")),
 						MessageType:     plumber.MessageEnd,
 						Success:         false,
 						Error:           plumber.NewMarshableError(err),

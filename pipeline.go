@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -296,8 +297,28 @@ func (p *NextflowPipeline) SetEnv(key, value string) {
 	p.Env[key] = value
 }
 
+type LineBuffer struct {
+	Capacity int
+	Lines    []string
+	mu       sync.Mutex
+}
+
+func NewLineBuffer(capacity int) LineBuffer {
+	return LineBuffer{
+		Capacity: capacity,
+		Lines:    make([]string, 0, capacity),
+	}
+}
+
+func (l *LineBuffer) Add(line string) {
+	if len(l.Lines) == l.Capacity {
+		l.Lines = l.Lines[1:]
+	}
+	l.Lines = append(l.Lines, line)
+}
+
 // Run a nextflow pipeline.
-func (p *NextflowPipeline) Run(profile string, extraArgs []string, webhook *Webhook) error {
+func (p *NextflowPipeline) Run(profile string, extraArgs []string, webhook *Webhook) ([]string, error) {
 	slog.Info("starting pipeline execution")
 	slog.Debug("settings", "plumber file", p.PlumberFile)
 	var args []string
@@ -307,6 +328,8 @@ func (p *NextflowPipeline) Run(profile string, extraArgs []string, webhook *Webh
 	for _, profileFile := range p.Profiles() {
 		args = append(args, "-c", profileFile.Path)
 	}
+
+	logTail := NewLineBuffer(10)
 
 	args = append(args,
 		"run",
@@ -337,30 +360,38 @@ func (p *NextflowPipeline) Run(profile string, extraArgs []string, webhook *Webh
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		return err
+		return logTail.Lines, err
 	}
 
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
-		return err
+		return logTail.Lines, err
 	}
 
 	slog.Debug("running command", "cmd", cmd.String())
 	if err := cmd.Start(); err != nil {
-		return err
+		return logTail.Lines, err
 	}
 
 	stdoutScanner := bufio.NewScanner(stdout)
 	go func() {
 		for stdoutScanner.Scan() {
-			fmt.Println(stdoutScanner.Text())
+			t := stdoutScanner.Text()
+			logTail.mu.Lock()
+			logTail.Add(t)
+			logTail.mu.Unlock()
+			fmt.Println(t)
 		}
 	}()
 
 	stderrScanner := bufio.NewScanner(stderr)
 	go func() {
 		for stderrScanner.Scan() {
-			fmt.Println(stderrScanner.Text())
+			t := stderrScanner.Text()
+			logTail.mu.Lock()
+			logTail.Add(t)
+			logTail.mu.Unlock()
+			fmt.Println(t)
 		}
 	}()
 
@@ -389,7 +420,7 @@ func (p *NextflowPipeline) Run(profile string, extraArgs []string, webhook *Webh
 		}()
 	}
 
-	return cmd.Wait()
+	return logTail.Lines, cmd.Wait()
 }
 
 // Cleanup removes intermediate files from previous executions.
