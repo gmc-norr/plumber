@@ -297,20 +297,20 @@ func (p *NextflowPipeline) SetEnv(key, value string) {
 	p.Env[key] = value
 }
 
-type LogTail struct {
+type LineBuffer struct {
 	Capacity int
 	Lines    []string
 	mu       sync.Mutex
 }
 
-func NewLogTail(capacity int) LogTail {
-	return LogTail{
+func NewLineBuffer(capacity int) LineBuffer {
+	return LineBuffer{
 		Capacity: capacity,
 		Lines:    make([]string, 0, capacity),
 	}
 }
 
-func (l *LogTail) Add(line string) {
+func (l *LineBuffer) Add(line string) {
 	if len(l.Lines) == l.Capacity {
 		l.Lines = l.Lines[1:]
 	}
@@ -329,7 +329,7 @@ func (p *NextflowPipeline) Run(profile string, extraArgs []string, webhook *Webh
 		args = append(args, "-c", profileFile.Path)
 	}
 
-	logTail := NewLogTail(10)
+	logTail := NewLineBuffer(10)
 
 	args = append(args,
 		"run",
