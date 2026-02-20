@@ -162,6 +162,7 @@ var (
 
 			nfPipeline := plumber.NewNextflowPipeline(pf)
 			nfPipeline.SetEnv("PLUMBER_PIPELINE_ASSETS", filepath.Join(pf.Path, "assets"))
+			nfPipeline.SetEnv("NEXTFLOW_CONFIG_HOME", pf.Path)
 			nfPipeline.Workdir = workdir
 			profiles, _ := cmd.Flags().GetString("profile")
 			if webhook != nil {
