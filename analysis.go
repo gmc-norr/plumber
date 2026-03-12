@@ -1,6 +1,10 @@
 package plumber
 
-import "github.com/google/uuid"
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
 
 type AnalysisState string
 
@@ -11,11 +15,23 @@ const (
 	StateSuccess AnalysisState = "success"
 )
 
+func (s *AnalysisState) WithTime(t time.Time) TimedAnalysisState {
+	return TimedAnalysisState{
+		AnalysisState: *s,
+		Time:          t,
+	}
+}
+
+type TimedAnalysisState struct {
+	AnalysisState `json:"name"`
+	Time          time.Time `json:"time"`
+}
+
 type Analysis struct {
-	Id       uuid.UUID
-	Pipeline Pipeline
-	Workdir  string
-	State    AnalysisState
+	Id       uuid.UUID          `json:"id"`
+	Pipeline Pipeline           `json:"pipeline"`
+	Workdir  string             `json:"workdir"`
+	State    TimedAnalysisState `json:"state"`
 }
 
 func NewAnalysis() *Analysis {
@@ -38,6 +54,13 @@ func (a *Analysis) WithWorkdir(path string) *Analysis {
 }
 
 func (a *Analysis) WithState(state AnalysisState) *Analysis {
-	a.State = state
+	a.State = state.WithTime(time.Now())
 	return a
+}
+
+func (a *Analysis) SetState(state AnalysisState) {
+	a.State = TimedAnalysisState{
+		AnalysisState: state,
+		Time:          time.Now(),
+	}
 }
