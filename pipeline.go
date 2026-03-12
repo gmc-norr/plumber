@@ -38,10 +38,10 @@ func ValidPipelineName(name string) bool {
 // Pipeline represents a pipeline as the name of the repo (<org>/<pipeline>), as well as
 // organisation and pipeline separately.
 type Pipeline struct {
-	Organisation string
-	Pipeline     string
-	Revision     string
-	Repo         string
+	Organisation string `json:"organisation"`
+	Pipeline     string `json:"pipeline"`
+	Revision     string `json:"revision"`
+	Repo         string `json:"repo"`
 }
 
 func (p *Pipeline) UnmarshalYAML(value *yaml.Node) error {
