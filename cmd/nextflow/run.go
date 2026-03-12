@@ -12,6 +12,7 @@ import (
 	"syscall"
 
 	"github.com/gmc-norr/plumber"
+	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -49,9 +50,20 @@ var (
 			configDir := viper.GetString("config-home")
 			pipeline, err := plumber.ParsePipelineName(args[0])
 			pipeline.Revision, _ = cmd.Flags().GetString("version")
+			stringId, _ := cmd.Flags().GetString("analysis-id")
 			noCleanup, _ := cmd.Flags().GetBool("no-cleanup")
 
 			workdir, _ = filepath.Abs(workdir)
+			var analysisId uuid.UUID
+			if stringId == "" {
+				analysisId = uuid.New()
+			} else {
+				analysisId, err = uuid.Parse(stringId)
+				cobra.CheckErr(err)
+			}
+
+			slog.Debug("analysis", "id", analysisId)
+
 			slog.Debug("initialising plumber", "path", workdir)
 
 			webhookUrl := viper.GetString("webhook-url")
@@ -233,5 +245,6 @@ func init() {
 	runCmd.Flags().StringP("version", "", "main", "tag/branch/commit of the pipeline to run")
 	runCmd.Flags().StringP("workdir", "d", ".", "directory where the pipeline should be executed")
 	runCmd.Flags().StringP("profile", "p", "", "comma-separated list of profiles to use for the execution")
+	runCmd.Flags().String("analysis-id", "", "external UUID of the analysis. If one is not given, and ID will be generated.")
 	runCmd.Flags().Bool("no-cleanup", false, "do not clean up intermediate files on successful execution")
 }
