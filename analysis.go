@@ -1,10 +1,17 @@
 package plumber
 
 import (
+	"encoding/json"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/google/uuid"
 )
+
+const AnalysisFile string = ".plumber-analysis.json"
 
 type AnalysisState string
 
@@ -63,4 +70,38 @@ func (a *Analysis) SetState(state AnalysisState) {
 		AnalysisState: state,
 		Time:          time.Now(),
 	}
+}
+
+func (a *Analysis) Write() error {
+	if a.Workdir == "" {
+		return fmt.Errorf("missing workdir")
+	}
+	f, err := os.Create(filepath.Join(a.Workdir, AnalysisFile))
+	if err != nil {
+		return err
+	}
+	defer func() { _ = f.Close() }()
+	b, err := json.Marshal(a)
+	if err != nil {
+		return err
+	}
+	_, err = f.Write(b)
+	return err
+}
+
+func (a *Analysis) Read() (Analysis, error) {
+	var analysis Analysis
+	if a.Workdir == "" {
+		return analysis, fmt.Errorf("missing workdir")
+	}
+	f, err := os.Open(filepath.Join(a.Workdir, AnalysisFile))
+	if err != nil {
+		return analysis, err
+	}
+	b, err := io.ReadAll(f)
+	if err != nil {
+		return analysis, err
+	}
+	err = json.Unmarshal(b, &analysis)
+	return analysis, err
 }
