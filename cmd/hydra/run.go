@@ -11,6 +11,7 @@ import (
 
 	"github.com/gmc-norr/plumber"
 	"github.com/gmc-norr/plumber/pyenv"
+	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -47,9 +48,22 @@ var (
 			configDir := viper.GetString("config-home")
 			pipeline, err := plumber.ParsePipelineName(args[0])
 			pipeline.Revision, _ = cmd.Flags().GetString("version")
+			stringId, _ := cmd.Flags().GetString("analysis-id")
+
 			if err != nil {
 				slog.Error("error parsing pipeline name", "error", err.Error())
 			}
+
+			var analysisId uuid.UUID
+			if stringId == "" {
+				analysisId = uuid.New()
+			} else {
+				analysisId, err = uuid.Parse(stringId)
+				cobra.CheckErr(err)
+			}
+
+			slog.Debug("analysis", "id", analysisId)
+
 			h := md5.Sum([]byte(fmt.Sprintf("%s-%s-%s-%s", configRepo, configVersion, pipeline.Repo, pipeline.Revision)))
 			path := filepath.Join(configDir, fmt.Sprintf("%x", h))
 			slog.Debug("attempting to read config", "path", path)
@@ -151,4 +165,5 @@ func init() {
 	runCmd.Flags().StringP("version", "", "main", "tag/branch/commit of the pipeline to run")
 	runCmd.Flags().StringP("workdir", "d", "", "directory where the pipeline should be executed")
 	runCmd.Flags().StringP("profile", "p", "", "comma-separated list of profiles to use for the execution")
+	runCmd.Flags().String("analysis-id", "", "external UUID of the analysis. If one is not given, and ID will be generated.")
 }
