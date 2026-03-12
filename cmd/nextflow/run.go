@@ -53,6 +53,10 @@ var (
 			stringId, _ := cmd.Flags().GetString("analysis-id")
 			noCleanup, _ := cmd.Flags().GetBool("no-cleanup")
 
+			if err != nil {
+				slog.Error("error parsing pipeline name", "error", err.Error())
+			}
+
 			workdir, _ = filepath.Abs(workdir)
 			var analysisId uuid.UUID
 			if stringId == "" {
@@ -129,9 +133,6 @@ var (
 				os.Exit(1)
 			}
 
-			if err != nil {
-				slog.Error("error parsing pipeline name", "error", err.Error())
-			}
 			h := md5.Sum([]byte(fmt.Sprintf("%s-%s-%s-%s", configRepo, configVersion, pipeline.Repo, pipeline.Revision)))
 			path := filepath.Join(configDir, fmt.Sprintf("%x", h))
 			slog.Debug("attempting to read config", "path", path)
