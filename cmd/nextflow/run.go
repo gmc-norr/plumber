@@ -210,7 +210,7 @@ var (
 					slog.Error("failed to send end message to webhook", "error", err)
 				}
 			}
-			if lastLogLines, err := nfPipeline.Run(profiles, nextflowArgs, webhook); err != nil {
+			if lastLogLines, err := nfPipeline.Run(profiles, nextflowArgs); err != nil {
 				if webhook != nil {
 					msg := plumber.WebhookMessage{
 						Pipeline:        nfPipeline.Pipelines[0].Pipeline.String(),
