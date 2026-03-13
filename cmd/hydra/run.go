@@ -163,7 +163,7 @@ var (
 
 func init() {
 	runCmd.Flags().StringP("version", "", "main", "tag/branch/commit of the pipeline to run")
-	runCmd.Flags().StringP("workdir", "d", "", "directory where the pipeline should be executed")
+	runCmd.Flags().StringP("workdir", "d", ".", "directory where the pipeline should be executed")
 	runCmd.Flags().StringP("profile", "p", "", "comma-separated list of profiles to use for the execution")
 	runCmd.Flags().String("analysis-id", "", "external UUID of the analysis. If one is not given, and ID will be generated.")
 }
