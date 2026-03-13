@@ -36,6 +36,7 @@ type TimedAnalysisState struct {
 
 type Analysis struct {
 	Id       uuid.UUID          `json:"id"`
+	User     string             `json:"user"`
 	Pipeline Pipeline           `json:"pipeline"`
 	Workdir  string             `json:"workdir"`
 	State    TimedAnalysisState `json:"state"`
@@ -47,6 +48,11 @@ func NewAnalysis() *Analysis {
 
 func (a *Analysis) WithId(id uuid.UUID) *Analysis {
 	a.Id = id
+	return a
+}
+
+func (a *Analysis) WithUser(user string) *Analysis {
+	a.User = user
 	return a
 }
 
