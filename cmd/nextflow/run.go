@@ -114,8 +114,13 @@ var (
 				signal.Notify(c, syscall.SIGTERM, syscall.SIGINT)
 				s := <-c
 				slog.Error("signal received, cleaning up and exiting", "signal", s)
+				analysis.SetState(plumber.StateFailed)
+				if err := analysis.Write(); err != nil {
+					slog.Error("failed to write analysis file", "error", err)
+				}
 				if webhook != nil {
 					msg := plumber.WebhookMessage{
+						AnalysisId:      analysis.Id,
 						Pipeline:        pipeline.String(),
 						PipelineVersion: pipeline.Revision,
 						Workdir:         workdir,
@@ -133,6 +138,7 @@ var (
 
 			if webhook != nil {
 				msg := plumber.WebhookMessage{
+					AnalysisId:      analysis.Id,
 					Pipeline:        pipeline.String(),
 					PipelineVersion: pipeline.Revision,
 					Workdir:         workdir,
@@ -159,15 +165,27 @@ var (
 			if err != nil {
 				if errors.Is(err, plumber.ErrPlumberFileFormat) {
 					slog.Error("plumberfile validation failed", "error", err)
+					analysis.SetState(plumber.StateFailed)
+					if err := analysis.Write(); err != nil {
+						slog.Error("failed to write analysis file", "error", err)
+					}
 					os.Exit(1)
 				}
 				slog.Info("no existing config found, attempting download")
 				if configRepo == "" {
 					slog.Error("no config found, and no repo given")
+					analysis.SetState(plumber.StateFailed)
+					if err := analysis.Write(); err != nil {
+						slog.Error("failed to write analysis file", "error", err)
+					}
 					os.Exit(1)
 				}
 				if configVersion == "" {
 					slog.Error("no config found, and no version given")
+					analysis.SetState(plumber.StateFailed)
+					if err := analysis.Write(); err != nil {
+						slog.Error("failed to write analysis file", "error", err)
+					}
 					os.Exit(1)
 				}
 				pf = plumber.PlumberFile{}
@@ -179,11 +197,19 @@ var (
 				repo, err := plumber.NewGitRepo(configRepo)
 				if err != nil {
 					slog.Error("error initialising git repo", "error", err)
+					analysis.SetState(plumber.StateFailed)
+					if err := analysis.Write(); err != nil {
+						slog.Error("failed to write analysis file", "error", err)
+					}
 					os.Exit(1)
 				}
 				err = plumber.DownloadConfig(repo, configVersion, &pf)
 				if err != nil {
 					slog.Error("error downloading config", "repo", pf.Source, "path", pf.Path, "error", err)
+					analysis.SetState(plumber.StateFailed)
+					if err := analysis.Write(); err != nil {
+						slog.Error("failed to write analysis file", "error", err)
+					}
 					os.Exit(1)
 				}
 			} else {
