@@ -19,7 +19,7 @@ const (
 	StatePending AnalysisState = "pending"
 	StateRunning AnalysisState = "running"
 	StateFailed  AnalysisState = "failed"
-	StateSuccess AnalysisState = "success"
+	StateSuccess AnalysisState = "succeeded"
 )
 
 func (s *AnalysisState) WithTime(t time.Time) TimedAnalysisState {
