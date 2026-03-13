@@ -211,7 +211,15 @@ var (
 					slog.Error("failed to send end message to webhook", "error", err)
 				}
 			}
+			analysis.SetState(plumber.StateRunning)
+			if err := analysis.Write(); err != nil {
+				slog.Error("failed to write analysis file", "error", err)
+			}
 			if lastLogLines, err := nfPipeline.Run(profiles, nextflowArgs); err != nil {
+				analysis.SetState(plumber.StateFailed)
+				if err := analysis.Write(); err != nil {
+					slog.Error("failed to write analysis file", "error", err)
+				}
 				if webhook != nil {
 					msg := plumber.WebhookMessage{
 						AnalysisId:      analysis.Id,
@@ -231,6 +239,10 @@ var (
 				os.Exit(1)
 			}
 			if !noCleanup {
+				analysis.SetState(plumber.StateRunning)
+				if err := analysis.Write(); err != nil {
+					slog.Error("failed to write analysis file", "error", err)
+				}
 				if webhook != nil {
 					msg := plumber.WebhookMessage{
 						AnalysisId:      analysis.Id,
@@ -246,6 +258,10 @@ var (
 					}
 				}
 				cobra.CheckErr(nfPipeline.Cleanup())
+			}
+			analysis.SetState(plumber.StateSuccess)
+			if err := analysis.Write(); err != nil {
+				slog.Error("failed to write analysis file", "error", err)
 			}
 			if webhook != nil {
 				msg := plumber.WebhookMessage{
