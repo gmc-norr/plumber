@@ -199,6 +199,7 @@ var (
 			profiles, _ := cmd.Flags().GetString("profile")
 			if webhook != nil {
 				msg := plumber.WebhookMessage{
+					AnalysisId:      analysis.Id,
 					Pipeline:        nfPipeline.Pipelines[0].Pipeline.String(),
 					PipelineVersion: nfPipeline.Pipelines[0].Version,
 					Workdir:         nfPipeline.Workdir,
@@ -213,6 +214,7 @@ var (
 			if lastLogLines, err := nfPipeline.Run(profiles, nextflowArgs); err != nil {
 				if webhook != nil {
 					msg := plumber.WebhookMessage{
+						AnalysisId:      analysis.Id,
 						Pipeline:        nfPipeline.Pipelines[0].Pipeline.String(),
 						PipelineVersion: nfPipeline.Pipelines[0].Version,
 						Workdir:         nfPipeline.Workdir,
@@ -231,6 +233,7 @@ var (
 			if !noCleanup {
 				if webhook != nil {
 					msg := plumber.WebhookMessage{
+						AnalysisId:      analysis.Id,
 						Pipeline:        nfPipeline.Pipelines[0].Pipeline.String(),
 						PipelineVersion: nfPipeline.Pipelines[0].Version,
 						Workdir:         nfPipeline.Workdir,
@@ -246,6 +249,7 @@ var (
 			}
 			if webhook != nil {
 				msg := plumber.WebhookMessage{
+					AnalysisId:      analysis.Id,
 					Pipeline:        nfPipeline.Pipelines[0].Pipeline.String(),
 					PipelineVersion: nfPipeline.Pipelines[0].Version,
 					Workdir:         nfPipeline.Workdir,
