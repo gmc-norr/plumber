@@ -49,6 +49,7 @@ var (
 			pipeline, err := plumber.ParsePipelineName(args[0])
 			pipeline.Revision, _ = cmd.Flags().GetString("version")
 			stringId, _ := cmd.Flags().GetString("analysis-id")
+			workdir, _ := cmd.Flags().GetString("workdir")
 
 			if err != nil {
 				slog.Error("error parsing pipeline name", "error", err.Error())
@@ -62,7 +63,18 @@ var (
 				cobra.CheckErr(err)
 			}
 
-			slog.Debug("analysis", "id", analysisId)
+			analysis := plumber.NewAnalysis().
+				WithId(analysisId).
+				WithUser(os.Getenv("USER")).
+				WithPipeline(pipeline).
+				WithWorkdir(workdir).
+				WithState(plumber.StatePending)
+
+			// Only fail on error for the first write, only log future write errors
+			err = analysis.Write()
+			cobra.CheckErr(err)
+
+			slog.Debug("initialising plumber", "path", workdir, "analysis", analysis)
 
 			h := md5.Sum([]byte(fmt.Sprintf("%s-%s-%s-%s", configRepo, configVersion, pipeline.Repo, pipeline.Revision)))
 			path := filepath.Join(configDir, fmt.Sprintf("%x", h))
@@ -71,15 +83,27 @@ var (
 			if err != nil {
 				if errors.Is(err, plumber.ErrPlumberFileFormat) {
 					slog.Error("plumberfile validation failed", "error", err)
+					analysis.SetState(plumber.StateFailed)
+					if err := analysis.Write(); err != nil {
+						slog.Error("failed to write analysis file", "error", err)
+					}
 					os.Exit(1)
 				}
 				slog.Info("no existing config found, attempting download")
 				if configRepo == "" {
 					slog.Error("no config found, and no repo given")
+					analysis.SetState(plumber.StateFailed)
+					if err := analysis.Write(); err != nil {
+						slog.Error("failed to write analysis file", "error", err)
+					}
 					os.Exit(1)
 				}
 				if configVersion == "" {
 					slog.Error("no config found, and no version given")
+					analysis.SetState(plumber.StateFailed)
+					if err := analysis.Write(); err != nil {
+						slog.Error("failed to write analysis file", "error", err)
+					}
 					os.Exit(1)
 				}
 				pf = plumber.PlumberFile{}
@@ -91,11 +115,19 @@ var (
 				repo, err := plumber.NewGitRepo(configRepo)
 				if err != nil {
 					slog.Error("error initialising git repo", "error", err)
+					analysis.SetState(plumber.StateFailed)
+					if err := analysis.Write(); err != nil {
+						slog.Error("failed to write analysis file", "error", err)
+					}
 					os.Exit(1)
 				}
 				err = plumber.DownloadConfig(repo, configVersion, &pf)
 				if err != nil {
 					slog.Error("error downloading config", "repo", repo, "path", pf.Path, "error", err)
+					analysis.SetState(plumber.StateFailed)
+					if err := analysis.Write(); err != nil {
+						slog.Error("failed to write analysis file", "error", err)
+					}
 					os.Exit(1)
 				}
 			} else {
@@ -115,12 +147,20 @@ var (
 			exists, err := env.Exists()
 			if err != nil {
 				slog.Error("virtual environment error", "error", err)
+				analysis.SetState(plumber.StateFailed)
+				if err := analysis.Write(); err != nil {
+					slog.Error("failed to write analysis file", "error", err)
+				}
 				os.Exit(1)
 			}
 			if !exists {
 				slog.Info("creating virtual environment", "name", env.Name, "python_version", env.Version)
 				if err := env.Create(); err != nil {
 					slog.Error("failed to set up python environment", "error", err)
+					analysis.SetState(plumber.StateFailed)
+					if err := analysis.Write(); err != nil {
+						slog.Error("failed to write analysis file", "error", err)
+					}
 					os.Exit(1)
 				}
 			} else {
@@ -128,6 +168,7 @@ var (
 			}
 
 			smPipeline := plumber.NewSnakemakePipeline(pf)
+			smPipeline.Workdir = analysis.Workdir
 			smPipeline.Path = os.ExpandEnv(fmt.Sprintf("$HOME/.local/share/plumber/%s/%s-%s", pipeline.Organisation, pipeline.Pipeline, pipeline.Revision))
 
 			if home, ok := os.LookupEnv("HOME"); ok {
@@ -141,12 +182,20 @@ var (
 			// Download the pipeline
 			if err := smPipeline.Download(); err != nil {
 				slog.Error("failed to download pipeline", "error", err)
+				analysis.SetState(plumber.StateFailed)
+				if err := analysis.Write(); err != nil {
+					slog.Error("failed to write analysis file", "error", err)
+				}
 				os.Exit(1)
 			}
 
 			// Install the pipeline
 			if err := smPipeline.Install(); err != nil {
 				slog.Error("failed to install pipeline", "error", err)
+				analysis.SetState(plumber.StateFailed)
+				if err := analysis.Write(); err != nil {
+					slog.Error("failed to write analysis file", "error", err)
+				}
 				os.Exit(1)
 			}
 
@@ -155,6 +204,10 @@ var (
 			profiles, _ := cmd.Flags().GetString("profile")
 			if err := smPipeline.Run(profiles, snakemakeArgs); err != nil {
 				slog.Error("error running pipeline", "error", err.Error())
+				analysis.SetState(plumber.StateFailed)
+				if err := analysis.Write(); err != nil {
+					slog.Error("failed to write analysis file", "error", err)
+				}
 				os.Exit(1)
 			}
 		},
