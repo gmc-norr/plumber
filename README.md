@@ -63,4 +63,4 @@ plumber config validate plumber.yaml
 
 ## Current limitations
 
-At the moment, only support for Nextflow pipelines has been implemented. More is to come.
+- Webhooks have not been implemented for snakemake (hydra) pipelines
