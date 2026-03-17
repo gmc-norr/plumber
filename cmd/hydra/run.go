@@ -70,6 +70,16 @@ var (
 				WithWorkdir(workdir).
 				WithState(plumber.StatePending)
 
+			if a, err := analysis.Read(); err != nil {
+				if !errors.Is(err, os.ErrNotExist) {
+					slog.Error("failed to read analysis file", "error", err)
+					os.Exit(1)
+				}
+			} else if a.Id != analysis.Id {
+				slog.Error("existing analysis id does not match current analysis id")
+				os.Exit(1)
+			}
+
 			// Only fail on error for the first write, only log future write errors
 			err = analysis.Write()
 			cobra.CheckErr(err)
