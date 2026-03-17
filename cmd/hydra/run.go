@@ -55,6 +55,8 @@ var (
 				slog.Error("error parsing pipeline name", "error", err.Error())
 			}
 
+			workdir, _ = filepath.Abs(workdir)
+
 			var analysisId uuid.UUID
 			if stringId == "" {
 				analysisId = uuid.New()
@@ -209,7 +211,6 @@ var (
 				os.Exit(1)
 			}
 
-			smPipeline.Workdir, _ = cmd.Flags().GetString("workdir")
 			slog.Debug("pipeline environment", "env", smPipeline.Env)
 			profiles, _ := cmd.Flags().GetString("profile")
 			if err := smPipeline.Run(profiles, snakemakeArgs); err != nil {
