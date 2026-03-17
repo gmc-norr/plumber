@@ -57,7 +57,9 @@ var (
 				slog.Error("error parsing pipeline name", "error", err.Error())
 			}
 
-			workdir, _ = filepath.Abs(workdir)
+			workdir, err = filepath.Abs(workdir)
+			cobra.CheckErr(err)
+
 			var analysisId uuid.UUID
 			if stringId == "" {
 				analysisId = uuid.New()
