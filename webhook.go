@@ -11,6 +11,8 @@ import (
 	"net/http"
 	"os"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type Webhook struct {
@@ -67,6 +69,7 @@ func (err MarshableError) MarshalJSON() ([]byte, error) {
 }
 
 type WebhookMessage struct {
+	AnalysisId      uuid.UUID      `json:"analysis_id"`
 	Pipeline        string         `json:"pipeline"`
 	PipelineVersion string         `json:"pipeline_version"`
 	Workdir         string         `json:"workdir"`

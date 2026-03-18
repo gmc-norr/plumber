@@ -12,7 +12,6 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"time"
 
 	"gopkg.in/yaml.v3"
 )
@@ -38,10 +37,10 @@ func ValidPipelineName(name string) bool {
 // Pipeline represents a pipeline as the name of the repo (<org>/<pipeline>), as well as
 // organisation and pipeline separately.
 type Pipeline struct {
-	Organisation string
-	Pipeline     string
-	Revision     string
-	Repo         string
+	Organisation string `json:"organisation"`
+	Pipeline     string `json:"pipeline"`
+	Revision     string `json:"revision"`
+	Repo         string `json:"repo"`
 }
 
 func (p *Pipeline) UnmarshalYAML(value *yaml.Node) error {
@@ -318,7 +317,7 @@ func (l *LineBuffer) Add(line string) {
 }
 
 // Run a nextflow pipeline.
-func (p *NextflowPipeline) Run(profile string, extraArgs []string, webhook *Webhook) ([]string, error) {
+func (p *NextflowPipeline) Run(profile string, extraArgs []string) ([]string, error) {
 	slog.Info("starting pipeline execution")
 	slog.Debug("settings", "plumber file", p.PlumberFile)
 	var args []string
@@ -394,31 +393,6 @@ func (p *NextflowPipeline) Run(profile string, extraArgs []string, webhook *Webh
 			fmt.Println(t)
 		}
 	}()
-
-	if webhook != nil {
-		slog.Debug("setting up progress messages")
-		go func() {
-			startTime := time.Now()
-			ticker := time.NewTicker(10 * time.Minute)
-			msg := WebhookMessage{
-				Pipeline:        p.Pipelines[0].Pipeline.String(),
-				PipelineVersion: p.Pipelines[0].Version,
-				Workdir:         p.Workdir,
-				MessageType:     MessageProgress,
-			}
-			for {
-				t := <-ticker.C
-				msg.Time = t
-				msg.Message = ProgressMessage{
-					Message: "execution in progress",
-					Elapsed: time.Since(startTime).Round(time.Second).Seconds(),
-				}
-				if err := webhook.Send(msg); err != nil {
-					slog.Error("failed to send progress message to webhook", "error", err)
-				}
-			}
-		}()
-	}
 
 	return logTail.Lines, cmd.Wait()
 }

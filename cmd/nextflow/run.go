@@ -12,6 +12,7 @@ import (
 	"syscall"
 
 	"github.com/gmc-norr/plumber"
+	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -49,10 +50,46 @@ var (
 			configDir := viper.GetString("config-home")
 			pipeline, err := plumber.ParsePipelineName(args[0])
 			pipeline.Revision, _ = cmd.Flags().GetString("version")
+			stringId, _ := cmd.Flags().GetString("analysis-id")
 			noCleanup, _ := cmd.Flags().GetBool("no-cleanup")
 
-			workdir, _ = filepath.Abs(workdir)
-			slog.Debug("initialising plumber", "path", workdir)
+			if err != nil {
+				slog.Error("error parsing pipeline name", "error", err.Error())
+			}
+
+			workdir, err = filepath.Abs(workdir)
+			cobra.CheckErr(err)
+
+			var analysisId uuid.UUID
+			if stringId == "" {
+				analysisId = uuid.New()
+			} else {
+				analysisId, err = uuid.Parse(stringId)
+				cobra.CheckErr(err)
+			}
+
+			analysis := plumber.NewAnalysis().
+				WithId(analysisId).
+				WithUser(os.Getenv("USER")).
+				WithPipeline(pipeline).
+				WithState(plumber.StatePending).
+				WithWorkdir(workdir)
+
+			if a, err := analysis.Read(); err != nil {
+				if !errors.Is(err, os.ErrNotExist) {
+					slog.Error("failed to read analysis file", "error", err)
+					os.Exit(1)
+				}
+			} else if a.Id != analysis.Id {
+				slog.Error("existing analysis id does not match current analysis id")
+				os.Exit(1)
+			}
+
+			// Only fail on error for the first write, only log future write errors
+			err = analysis.Write()
+			cobra.CheckErr(err)
+
+			slog.Debug("initialising plumber", "path", workdir, "analysis", analysis)
 
 			webhookUrl := viper.GetString("webhook-url")
 			var webhookErr error
@@ -79,8 +116,13 @@ var (
 				signal.Notify(c, syscall.SIGTERM, syscall.SIGINT)
 				s := <-c
 				slog.Error("signal received, cleaning up and exiting", "signal", s)
+				analysis.SetState(plumber.StateFailed)
+				if err := analysis.Write(); err != nil {
+					slog.Error("failed to write analysis file", "error", err)
+				}
 				if webhook != nil {
 					msg := plumber.WebhookMessage{
+						AnalysisId:      analysis.Id,
 						Pipeline:        pipeline.String(),
 						PipelineVersion: pipeline.Revision,
 						Workdir:         workdir,
@@ -98,6 +140,7 @@ var (
 
 			if webhook != nil {
 				msg := plumber.WebhookMessage{
+					AnalysisId:      analysis.Id,
 					Pipeline:        pipeline.String(),
 					PipelineVersion: pipeline.Revision,
 					Workdir:         workdir,
@@ -117,9 +160,6 @@ var (
 				os.Exit(1)
 			}
 
-			if err != nil {
-				slog.Error("error parsing pipeline name", "error", err.Error())
-			}
 			h := md5.Sum([]byte(fmt.Sprintf("%s-%s-%s-%s", configRepo, configVersion, pipeline.Repo, pipeline.Revision)))
 			path := filepath.Join(configDir, fmt.Sprintf("%x", h))
 			slog.Debug("attempting to read config", "path", path)
@@ -127,15 +167,27 @@ var (
 			if err != nil {
 				if errors.Is(err, plumber.ErrPlumberFileFormat) {
 					slog.Error("plumberfile validation failed", "error", err)
+					analysis.SetState(plumber.StateFailed)
+					if err := analysis.Write(); err != nil {
+						slog.Error("failed to write analysis file", "error", err)
+					}
 					os.Exit(1)
 				}
 				slog.Info("no existing config found, attempting download")
 				if configRepo == "" {
 					slog.Error("no config found, and no repo given")
+					analysis.SetState(plumber.StateFailed)
+					if err := analysis.Write(); err != nil {
+						slog.Error("failed to write analysis file", "error", err)
+					}
 					os.Exit(1)
 				}
 				if configVersion == "" {
 					slog.Error("no config found, and no version given")
+					analysis.SetState(plumber.StateFailed)
+					if err := analysis.Write(); err != nil {
+						slog.Error("failed to write analysis file", "error", err)
+					}
 					os.Exit(1)
 				}
 				pf = plumber.PlumberFile{}
@@ -147,11 +199,19 @@ var (
 				repo, err := plumber.NewGitRepo(configRepo)
 				if err != nil {
 					slog.Error("error initialising git repo", "error", err)
+					analysis.SetState(plumber.StateFailed)
+					if err := analysis.Write(); err != nil {
+						slog.Error("failed to write analysis file", "error", err)
+					}
 					os.Exit(1)
 				}
 				err = plumber.DownloadConfig(repo, configVersion, &pf)
 				if err != nil {
 					slog.Error("error downloading config", "repo", pf.Source, "path", pf.Path, "error", err)
+					analysis.SetState(plumber.StateFailed)
+					if err := analysis.Write(); err != nil {
+						slog.Error("failed to write analysis file", "error", err)
+					}
 					os.Exit(1)
 				}
 			} else {
@@ -167,6 +227,7 @@ var (
 			profiles, _ := cmd.Flags().GetString("profile")
 			if webhook != nil {
 				msg := plumber.WebhookMessage{
+					AnalysisId:      analysis.Id,
 					Pipeline:        nfPipeline.Pipelines[0].Pipeline.String(),
 					PipelineVersion: nfPipeline.Pipelines[0].Version,
 					Workdir:         nfPipeline.Workdir,
@@ -178,9 +239,18 @@ var (
 					slog.Error("failed to send end message to webhook", "error", err)
 				}
 			}
-			if lastLogLines, err := nfPipeline.Run(profiles, nextflowArgs, webhook); err != nil {
+			analysis.SetState(plumber.StateRunning)
+			if err := analysis.Write(); err != nil {
+				slog.Error("failed to write analysis file", "error", err)
+			}
+			if lastLogLines, err := nfPipeline.Run(profiles, nextflowArgs); err != nil {
+				analysis.SetState(plumber.StateFailed)
+				if err := analysis.Write(); err != nil {
+					slog.Error("failed to write analysis file", "error", err)
+				}
 				if webhook != nil {
 					msg := plumber.WebhookMessage{
+						AnalysisId:      analysis.Id,
 						Pipeline:        nfPipeline.Pipelines[0].Pipeline.String(),
 						PipelineVersion: nfPipeline.Pipelines[0].Version,
 						Workdir:         nfPipeline.Workdir,
@@ -197,8 +267,13 @@ var (
 				os.Exit(1)
 			}
 			if !noCleanup {
+				analysis.SetState(plumber.StateRunning)
+				if err := analysis.Write(); err != nil {
+					slog.Error("failed to write analysis file", "error", err)
+				}
 				if webhook != nil {
 					msg := plumber.WebhookMessage{
+						AnalysisId:      analysis.Id,
 						Pipeline:        nfPipeline.Pipelines[0].Pipeline.String(),
 						PipelineVersion: nfPipeline.Pipelines[0].Version,
 						Workdir:         nfPipeline.Workdir,
@@ -212,8 +287,13 @@ var (
 				}
 				cobra.CheckErr(nfPipeline.Cleanup())
 			}
+			analysis.SetState(plumber.StateSuccess)
+			if err := analysis.Write(); err != nil {
+				slog.Error("failed to write analysis file", "error", err)
+			}
 			if webhook != nil {
 				msg := plumber.WebhookMessage{
+					AnalysisId:      analysis.Id,
 					Pipeline:        nfPipeline.Pipelines[0].Pipeline.String(),
 					PipelineVersion: nfPipeline.Pipelines[0].Version,
 					Workdir:         nfPipeline.Workdir,
@@ -233,5 +313,6 @@ func init() {
 	runCmd.Flags().StringP("version", "", "main", "tag/branch/commit of the pipeline to run")
 	runCmd.Flags().StringP("workdir", "d", ".", "directory where the pipeline should be executed")
 	runCmd.Flags().StringP("profile", "p", "", "comma-separated list of profiles to use for the execution")
+	runCmd.Flags().String("analysis-id", "", "external UUID of the analysis. If one is not given, and ID will be generated.")
 	runCmd.Flags().Bool("no-cleanup", false, "do not clean up intermediate files on successful execution")
 }

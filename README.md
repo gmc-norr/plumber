@@ -16,6 +16,8 @@ Plumber is a wrapper for Snakemake and nf-core pipelines that are run at GMC Nor
 
 Plumber is very much adapted to work with the [gmc-norr/config-files](https://github.comg/gmc-norr/config-files) repository. Config files will be downloaded for local use, and the default location for this is `${XDG_CONFIG_HOME}/plumber`. If `XDG_CONFIG_HOME` is not set, `$HOME/.config/plumber` will be used instead.
 
+When an analysis is started, the file `.plumber-analysis.json` will be written in the working directory for the analysis. This contains information about the pipeline that is being run, and also includes an analysis ID. If an analysis is started in a working directory where this file already exists, plumber checks that the ID is the same as the one being supplied on the command line. If this is not the case, plumber exits with an error.
+
 ## Environment variables
 
 - `PLUMBER_CONFIG_HOME`: Location where config files will be stored. Defaults to `${XDG_CONFIG_HOME}/plumber`, and if that is undefined `$HOME/.config/plumber`.
@@ -33,6 +35,7 @@ Messages are sent as JSON with the following structure:
 
 ```txt
 {
+    "analysis_id": ID of the analysis,
     "pipeline": name of the pipeline,
     "pipeline_version": pipelinen version,
     "workdir": working directory for the execution,
@@ -60,4 +63,4 @@ plumber config validate plumber.yaml
 
 ## Current limitations
 
-At the moment, only support for Nextflow pipelines has been implemented. More is to come.
+- Webhooks have not been implemented for snakemake (hydra) pipelines
