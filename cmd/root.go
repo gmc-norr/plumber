@@ -87,5 +87,5 @@ func init() {
 	rootCmd.PersistentFlags().Bool("webhook-no-verify", false, "Don't verify TLS certificates for webhooks (INSECURE)")
 	rootCmd.PersistentFlags().StringP("log-level", "l", "WARN", "log level")
 
-	_ = viper.BindPFlag("log-level", rootCmd.PersistentFlags().Lookup("log-level"))
+	_ = viper.BindPFlags(rootCmd.PersistentFlags())
 }
