@@ -2,6 +2,7 @@
 
 ## 0.1.0 (2026-03-27)
 
+This is the first release of plumber. Things will change, and until those pending changes have been addressed plumber will have a major version of 0. Things will break.
 
 ### Features
 
