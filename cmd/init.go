@@ -9,8 +9,9 @@ import (
 )
 
 var initCmd = &cobra.Command{
-	Use:   "init",
-	Short: "Initialise plumber",
+	Use:        "init",
+	Short:      "Initialise plumber",
+	Deprecated: "initialisation is now done in the background",
 	Run: func(cmd *cobra.Command, args []string) {
 		configHome := viper.GetString("config-home")
 		info, err := os.Stat(configHome)

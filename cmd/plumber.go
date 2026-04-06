@@ -14,6 +14,12 @@ import (
 	"github.com/spf13/viper"
 )
 
+func InitConfigDir(cmd *cobra.Command, args []string) error {
+	configDir := viper.GetString("config-home")
+	slog.Debug("initialising config dir", "path", configDir)
+	return os.MkdirAll(configDir, 0o777)
+}
+
 func initConfig() {
 	configHome, ok := os.LookupEnv("XDG_CONFIG_HOME")
 	if !ok {
@@ -66,9 +72,10 @@ func logger() error {
 }
 
 var rootCmd = &cobra.Command{
-	Use:     "plumber",
-	Short:   "Run pipelines",
-	Version: version,
+	Use:               "plumber",
+	Short:             "Run pipelines",
+	Version:           version,
+	PersistentPreRunE: InitConfigDir,
 }
 
 func init() {
