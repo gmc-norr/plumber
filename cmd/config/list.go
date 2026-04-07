@@ -30,7 +30,7 @@ var listCmd = &cobra.Command{
 				slog.Error("error initialising git repo", "error", err)
 				os.Exit(1)
 			}
-			pf, err := plumber.DownloadConfigRepo(&repo, configVersion)
+			pf, err := plumber.DownloadConfigRepo(&repo, configVersion, viper.GetString("cache-home"))
 			if err != nil {
 				slog.Error("error getting config repo", "error", err)
 				os.Exit(1)

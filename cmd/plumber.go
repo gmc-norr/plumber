@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -20,6 +21,16 @@ func InitConfigDir(cmd *cobra.Command, args []string) error {
 	return os.MkdirAll(configDir, 0o777)
 }
 
+func InitCacheDir(cmd *cobra.Command, args []string) error {
+	cacheDir := viper.GetString("cache-home")
+	slog.Debug("initialising cache dir", "path", cacheDir)
+	return os.MkdirAll(cacheDir, 0o777)
+}
+
+func MakeDirs(cmd *cobra.Command, args []string) error {
+	return errors.Join(InitConfigDir(cmd, args), InitCacheDir(cmd, args))
+}
+
 func initConfig() {
 	configHome, ok := os.LookupEnv("XDG_CONFIG_HOME")
 	if !ok {
@@ -31,11 +42,23 @@ func initConfig() {
 		configHome = filepath.Join(home, ".config")
 	}
 
+	cacheHome, ok := os.LookupEnv("XDG_CACHE_HOME")
+	if !ok {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			slog.Error("unable to find user's home directory")
+			os.Exit(1)
+		}
+		cacheHome = filepath.Join(home, ".cache")
+	}
+
 	viper.SetDefault("config-home", filepath.Join(configHome, "plumber"))
+	viper.SetDefault("cache-home", filepath.Join(cacheHome, "plumber"))
 	viper.SetDefault("log-level", "WARN")
 	viper.Set("plumber-version", version)
 
 	viper.MustBindEnv("config-home", "PLUMBER_CONFIG_HOME")
+	viper.MustBindEnv("cache-home", "PLUMBER_CACHE_HOME")
 	viper.MustBindEnv("log-level", "PLUMBER_LOGLEVEL")
 
 	viper.MustBindEnv("certs", "PLUMBER_CERTS")
@@ -75,7 +98,7 @@ var rootCmd = &cobra.Command{
 	Use:               "plumber",
 	Short:             "Run pipelines",
 	Version:           version,
-	PersistentPreRunE: InitConfigDir,
+	PersistentPreRunE: MakeDirs,
 }
 
 func init() {

@@ -362,15 +362,14 @@ func ValidatePlumberFile(data []byte) error {
 // GitRepo.Path accordingly. It returns a PlumberFile, and if the repo
 // cannot be cloned, checked out, or the plumber file cannot be read, an
 // error is also returned, otherwise nil.
-func DownloadConfigRepo(repo *GitRepo, repoVersion string) (PlumberFile, error) {
+func DownloadConfigRepo(repo *GitRepo, repoVersion string, dir string) (PlumberFile, error) {
 	var pf PlumberFile
-	tmpDest, err := os.MkdirTemp(os.TempDir(), "plumber-")
-	if err != nil {
-		return pf, err
-	}
-	repo.LocalPath = tmpDest
+	dest := filepath.Join(dir, repo.Url.Path)
+	repo.LocalPath = dest
 
-	if err := repo.Clone(); err != nil {
+	slog.Debug("downloading config repo", "url", repo.Url, "local_path", dest)
+
+	if err := repo.Sync(); err != nil {
 		return pf, err
 	}
 
@@ -378,21 +377,14 @@ func DownloadConfigRepo(repo *GitRepo, repoVersion string) (PlumberFile, error) 
 		return pf, err
 	}
 
-	return ReadPlumberFile(filepath.Join(tmpDest, PlumberFileName))
+	return ReadPlumberFile(filepath.Join(dest, PlumberFileName))
 }
 
-func DownloadConfig(repo GitRepo, repoVersion string, plumberFile *PlumberFile) (err error) {
-	pf, err := DownloadConfigRepo(&repo, repoVersion)
+func DownloadConfig(repo GitRepo, repoVersion string, plumberFile *PlumberFile, dir string) (err error) {
+	pf, err := DownloadConfigRepo(&repo, repoVersion, dir)
 	if err != nil {
 		return err
 	}
-
-	defer func() {
-		slog.Debug("cleaning up cloned directory", "dir", repo.LocalPath)
-		if err := os.RemoveAll(repo.LocalPath); err != nil {
-			slog.Error("failed to clean up, do it manually", "dir", repo.LocalPath, "error", err)
-		}
-	}()
 
 	var pipelineData *PipelineMetadata
 	slog.Debug("looking for pipeline config", "pipeline", plumberFile.Pipelines[0].Pipeline)

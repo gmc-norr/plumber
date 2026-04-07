@@ -49,7 +49,7 @@ var downloadCmd = &cobra.Command{
 			slog.Error("config already exists", "path", pf.Path)
 			os.Exit(1)
 		}
-		if err := plumber.DownloadConfig(repo, configVersion, &pf); err != nil {
+		if err := plumber.DownloadConfig(repo, configVersion, &pf, viper.GetString("cache-home")); err != nil {
 			slog.Error("error downloading config", "error", err.Error())
 			os.Exit(1)
 		}

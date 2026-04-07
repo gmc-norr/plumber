@@ -134,7 +134,7 @@ var (
 					}
 					os.Exit(1)
 				}
-				err = plumber.DownloadConfig(repo, configVersion, &pf)
+				err = plumber.DownloadConfig(repo, configVersion, &pf, viper.GetString("cache-home"))
 				if err != nil {
 					slog.Error("error downloading config", "repo", repo, "path", pf.Path, "error", err)
 					analysis.SetState(plumber.StateFailed)
