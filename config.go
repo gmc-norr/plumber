@@ -549,6 +549,22 @@ func DownloadConfig(repo GitRepo, repoVersion string, plumberFile *PlumberFile, 
 		pipelineConfig.Profiles[i] = profile
 	}
 
+	slog.Debug("computing config file checksums")
+	checksums, err := plumberFile.Checksum()
+	if err != nil {
+		return err
+	}
+	f, err := os.Create(filepath.Join(plumberFile.Path, ChecksumFile))
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = f.Close()
+	}()
+	if err := checksums.Write(f); err != nil {
+		return fmt.Errorf("failed to write checksums: %w", err)
+	}
+
 	plumberFile.Version = pf.Version
 	plumberFile.Source = repo.Url.String()
 	plumberFile.Revision = repoVersion

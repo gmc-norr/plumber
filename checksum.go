@@ -14,6 +14,8 @@ import (
 	"slices"
 )
 
+const ChecksumFile = ".checksums"
+
 // ErrChecksumPathNotFound represents an error when a path cannot be found
 // when comparing checksums.
 type ErrChecksumPathNotFound struct {
