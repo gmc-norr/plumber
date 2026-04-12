@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -378,6 +379,22 @@ func DownloadConfigRepo(repo *GitRepo, repoVersion string, dir string) (PlumberF
 	}
 
 	return ReadPlumberFile(filepath.Join(dest, PlumberFileName))
+}
+
+func (pf PlumberFile) Checksum() (FileChecksums, error) {
+	checksums := make([]FileChecksum, 0, 100)
+	err := fs.WalkDir(os.DirFS(pf.Path), ".", func(path string, d fs.DirEntry, err error) error {
+		if d.IsDir() {
+			return nil
+		}
+		sum, sumerr := NewFileChecksum(pf.Path, path)
+		if sumerr != nil {
+			return sumerr
+		}
+		checksums = append(checksums, sum)
+		return nil
+	})
+	return checksums, err
 }
 
 func DownloadConfig(repo GitRepo, repoVersion string, plumberFile *PlumberFile, dir string) (err error) {
