@@ -386,6 +386,9 @@ func (p *NextflowPipeline) Run(profile string, extraArgs []string) ([]string, er
 	go func() {
 		for stdoutScanner.Scan() {
 			t := StripAnsi(stdoutScanner.Text())
+			if strings.TrimSpace(t) == "" {
+				continue
+			}
 			logTail.mu.Lock()
 			logTail.Add(t)
 			logTail.mu.Unlock()
@@ -397,6 +400,9 @@ func (p *NextflowPipeline) Run(profile string, extraArgs []string) ([]string, er
 	go func() {
 		for stderrScanner.Scan() {
 			t := StripAnsi(stderrScanner.Text())
+			if strings.TrimSpace(t) == "" {
+				continue
+			}
 			logTail.mu.Lock()
 			logTail.Add(t)
 			logTail.mu.Unlock()
