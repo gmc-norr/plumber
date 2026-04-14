@@ -254,7 +254,7 @@ var (
 						Pipeline:        nfPipeline.Pipelines[0].Pipeline.String(),
 						PipelineVersion: nfPipeline.Pipelines[0].Version,
 						Workdir:         nfPipeline.Workdir,
-						Message:         fmt.Sprintf("pipeline failed, end of log: %v", strings.Join(lastLogLines, "\n")),
+						Message:         fmt.Sprintf("pipeline failed, end of log:\n%s", strings.Join(lastLogLines, "\n")),
 						MessageType:     plumber.MessageEnd,
 						Success:         false,
 						Error:           plumber.NewMarshableError(err),
