@@ -385,7 +385,7 @@ func (p *NextflowPipeline) Run(profile string, extraArgs []string) ([]string, er
 	stdoutScanner := bufio.NewScanner(stdout)
 	go func() {
 		for stdoutScanner.Scan() {
-			t := StripAnsi(stdoutScanner.Text())
+			t := StripAnsi(strings.TrimSpace(stdoutScanner.Text()))
 			if strings.TrimSpace(t) == "" {
 				continue
 			}
@@ -399,7 +399,7 @@ func (p *NextflowPipeline) Run(profile string, extraArgs []string) ([]string, er
 	stderrScanner := bufio.NewScanner(stderr)
 	go func() {
 		for stderrScanner.Scan() {
-			t := StripAnsi(stderrScanner.Text())
+			t := StripAnsi(strings.TrimSpace(stderrScanner.Text()))
 			if strings.TrimSpace(t) == "" {
 				continue
 			}
