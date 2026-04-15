@@ -159,11 +159,27 @@ func (p *SnakemakePipeline) Download() (err error) {
 	return nil
 }
 
+// Install installs the dependencies for a snakemake pipeline. This requires that the
+// pipeline either has a `pyproject.toml` that is compatible with pip, or that it has
+// a `requirements.txt`. In the case it has both of these files, it will prioritise
+// `pyproject.toml` and will not attempt to use `requirements.txt` if the install would
+// fail. It returns a non-nil error if the installation command returns a non-zero exit
+// code, and otherwise `nil`.
+//
+// The environment used for the installation is controlled by the environment variables
+// defined in [SnakemakePipeline].
 func (p *SnakemakePipeline) Install() error {
 	if !p.Downloaded {
 		return fmt.Errorf("pipeline has not been downloaded")
 	}
-	cmd := exec.Command("python", "-m", "pip", "install", "-r", "requirements.txt")
+	var cmd *exec.Cmd
+	if _, err := os.Stat(filepath.Join(p.Path, "pyproject.toml")); err == nil {
+		slog.Debug("found pyproject.toml, installing directly")
+		cmd = exec.Command("python", "-m", "pip", "install", ".")
+	} else {
+		slog.Debug("installing from requirements file")
+		cmd = exec.Command("python", "-m", "pip", "install", "-r", "requirements.txt")
+	}
 	cmd.Dir = p.Path
 	for k, v := range p.Env {
 		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", k, v))
