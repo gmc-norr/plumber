@@ -10,11 +10,21 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 
 	"gopkg.in/yaml.v3"
 )
+
+// AnsiRegexp is a regular expression matching ANSI escape codes,
+// taken from the package stripansi: https://github.com/acarl005/stripansi
+var AnsiRegexp = regexp.MustCompile("[\u001B\u009B][[\\]()#;?]*(?:(?:(?:[a-zA-Z\\d]*(?:;[a-zA-Z\\d]*)*)?\u0007)|(?:(?:\\d{1,4}(?:;\\d{0,4})*)?[\\dA-PRZcf-ntqry=><~]))")
+
+// StripAnsi strips ANSI escape codes from a string.
+func StripAnsi(s string) string {
+	return AnsiRegexp.ReplaceAllString(s, "")
+}
 
 // ValidPipelineName checks that the name of a pipeline is valid. It should be on the form
 // <org>/<repo> and there can be one and only one "/" in the name. Spaces in the organisation
@@ -375,7 +385,10 @@ func (p *NextflowPipeline) Run(profile string, extraArgs []string) ([]string, er
 	stdoutScanner := bufio.NewScanner(stdout)
 	go func() {
 		for stdoutScanner.Scan() {
-			t := stdoutScanner.Text()
+			t := StripAnsi(strings.TrimSpace(stdoutScanner.Text()))
+			if t == "" {
+				continue
+			}
 			logTail.mu.Lock()
 			logTail.Add(t)
 			logTail.mu.Unlock()
@@ -386,7 +399,10 @@ func (p *NextflowPipeline) Run(profile string, extraArgs []string) ([]string, er
 	stderrScanner := bufio.NewScanner(stderr)
 	go func() {
 		for stderrScanner.Scan() {
-			t := stderrScanner.Text()
+			t := StripAnsi(strings.TrimSpace(stderrScanner.Text()))
+			if t == "" {
+				continue
+			}
 			logTail.mu.Lock()
 			logTail.Add(t)
 			logTail.mu.Unlock()
