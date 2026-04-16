@@ -222,6 +222,10 @@ var (
 				}
 				os.Exit(1)
 			}
+			analysis.SetState(plumber.StateSuccess)
+			if err := analysis.Write(); err != nil {
+				slog.Error("failed to write analysis file", "error", err)
+			}
 		},
 	}
 )
