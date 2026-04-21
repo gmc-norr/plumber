@@ -49,7 +49,7 @@ func (e *Environment) Create() error {
 	if _, err := Version(); err != nil {
 		return fmt.Errorf("unable to locate pyenv: %w", err)
 	}
-	if err := HasPython(e.Version); errors.Is(ErrPythonVersionNotFound, err) {
+	if err := HasPython(e.Version); errors.Is(err, ErrPythonVersionNotFound) {
 		if err := Install(e.Version); err != nil {
 			return err
 		}
