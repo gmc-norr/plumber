@@ -73,7 +73,6 @@ func logger(v *viper.Viper) error {
 	return nil
 }
 
-
 func NewRootCmd(v *viper.Viper) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "plumber",

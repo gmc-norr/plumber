@@ -36,17 +36,21 @@ func TestNextflowRun(t *testing.T) {
 
 // Test that nextflow run outputs `.plumber-analysis.json`
 func TestNextflowRunAnalysisFile(t *testing.T) {
-	cmd := newTestRootCmd(t)
-	wd, so, se, err := runInTempdir(t, cmd, []string{"nextflow", "run", "nf-core/raredisease", "--version", "2.4.0", "-l", "debug"})
-	t.Log(cmd.Args)
-	analysisFilePath := filepath.Join(wd, `.plumber-analysis.json`)
-	t.Logf("stdout: %s", so)
-	t.Logf("stderr: %s", se)
-	if _, err := os.Stat(analysisFilePath); err != nil {
-		t.Error(err)
-	}
+	v := newTestViper(t)
+	cmd := NewRootCmd(v)
+	wd, _, _, err := runInTempdir(t, cmd, []string{"nextflow", "run", "nf-core/raredisease", "--version", "2.4.0", "-l", "debug"})
 	if err == nil {
 		t.Error("expected execution to fail but it didn't")
+	}
+
+	_, err = findPlumberFile(v)
+	if err != nil {
+		t.Error(err)
+	}
+
+	analysisFilePath := filepath.Join(wd, `.plumber-analysis.json`)
+	if _, err := os.Stat(analysisFilePath); err != nil {
+		t.Error(err)
 	}
 }
 
@@ -59,17 +63,26 @@ func TestHydraRun(t *testing.T) {
 	}
 }
 
-// Test that nextflow run outputs `.plumber-analysis.json`
+// Test that `hydra run` downloads the config and outputs `.plumber-analysis.json`
 func TestHydraRunAnalyisFile(t *testing.T) {
-	cmd := newTestRootCmd(t)
-	wd, so, se, err := runInTempdir(t, cmd, []string{"hydra", "run", "genomic-medicine-sweden/Twist_Solid", "--version", "v0.23.0", "-l", "debug", "--profile", "slurm_hg19_research"})
+	v := newTestViper(t)
+	cmd := NewRootCmd(v)
+	wd, _, _, err := runInTempdir(t, cmd, []string{"hydra", "run", "genomic-medicine-sweden/Twist_Solid", "--version", "v0.23.0", "-l", "debug", "--profile", "slurm_hg19_research"})
+	if err == nil {
+		t.Error("expected execution to fail but it didn't")
+	}
+
+	_, err = findPlumberFile(v)
+	if err != nil {
+		t.Error(err)
+	}
+
 	analysisFilePath := filepath.Join(wd, `.plumber-analysis.json`)
 	if _, err := os.Stat(analysisFilePath); err != nil {
 		t.Error(err)
-		t.Logf("stdout: %s", so)
-		t.Logf("stderr: %s", se)
 	}
-	if err == nil {
-		t.Error("expected execution to fail but it didn't")
+
+	if _, err := os.Stat(analysisFilePath); err != nil {
+		t.Error(err)
 	}
 }
