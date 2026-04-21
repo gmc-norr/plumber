@@ -18,7 +18,7 @@ func NewListCmd(v *viper.Viper) *cobra.Command {
 		Use:   "list",
 		Short: "List existing configs",
 		Args:  cobra.NoArgs,
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			listRemote, _ := cmd.Flags().GetBool("remote")
 			tw := tabwriter.NewWriter(os.Stdout, 1, 2, 2, ' ', 0)
 
@@ -28,13 +28,11 @@ func NewListCmd(v *viper.Viper) *cobra.Command {
 				slog.Debug("repo", "url", configRepo, "version", configVersion)
 				repo, err := plumber.NewGitRepo(configRepo)
 				if err != nil {
-					slog.Error("error initialising git repo", "error", err)
-					os.Exit(1)
+					return fmt.Errorf("error initialising git repo: %w", err)
 				}
 				pf, err := plumber.DownloadConfigRepo(&repo, configVersion, v.GetString("cache-home"))
 				if err != nil {
-					slog.Error("error getting config repo", "error", err)
-					os.Exit(1)
+					return fmt.Errorf("error getting config repo: %w", err)
 				}
 
 				if _, err := fmt.Fprint(tw, "pipeline\tversion\tengine\n"); err != nil {
@@ -49,7 +47,7 @@ func NewListCmd(v *viper.Viper) *cobra.Command {
 					}
 				}
 				_ = tw.Flush()
-				return
+				return nil
 			}
 
 			configHome := v.GetString("config-home")
@@ -58,8 +56,7 @@ func NewListCmd(v *viper.Viper) *cobra.Command {
 			}
 			files, err := os.ReadDir(configHome)
 			if err != nil {
-				slog.Error("error listing directories", "error", err.Error())
-				os.Exit(1)
+				return fmt.Errorf("error listing directories: %w", err)
 			}
 			didError := false
 			if _, err := fmt.Fprint(tw, "id\tpipeline\tversion\tengine\tsource-repo\trevision\tvalid\n"); err != nil {
@@ -95,12 +92,13 @@ func NewListCmd(v *viper.Viper) *cobra.Command {
 			}
 			_ = tw.Flush()
 			if didError {
-				os.Exit(1)
+				return fmt.Errorf("encountered errors while listing configs")
 			}
+			return nil
 		},
 	}
 
 	cmd.Flags().Bool("remote", false, "list available remote configs")
-	
+
 	return cmd
 }

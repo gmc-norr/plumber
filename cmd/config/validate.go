@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"io"
 	"log/slog"
 	"os"
@@ -16,7 +17,7 @@ func NewValidateCmd(v *viper.Viper) *cobra.Command {
 		Use:   "validate PLUMBERFILE",
 		Short: "Validate a plumberfile",
 		Args:  cobra.ExactArgs(1),
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			isHash, _ := cmd.Flags().GetBool("hash")
 			var path string
 			if isHash {
@@ -28,19 +29,17 @@ func NewValidateCmd(v *viper.Viper) *cobra.Command {
 			slog.Info("validating configuration", "plumberfile", path)
 			f, err := os.Open(path)
 			if err != nil {
-				slog.Error("failed to open file", "path", path, "error", err)
-				os.Exit(1)
+				return fmt.Errorf("failed to open file: %w", err)
 			}
 			b, err := io.ReadAll(f)
 			if err != nil {
-				slog.Error("failed to read file", "path", path, "error", err)
-				os.Exit(1)
+				return fmt.Errorf("failed to read file: %w", err)
 			}
 			if err := plumber.ValidatePlumberFile(b); err != nil {
-				slog.Error("plumberfile validation failed", "error", err)
-				os.Exit(1)
+				return fmt.Errorf("plumberfile validation failed: %w", err)
 			}
 			slog.Info("validation successful", "plumberfile", path)
+			return nil
 		},
 	}
 

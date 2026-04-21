@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -14,18 +15,17 @@ func NewRmCmd(v *viper.Viper) *cobra.Command {
 		Use:   "rm NAME",
 		Short: "Remove a config",
 		Args:  cobra.ExactArgs(1),
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			configDir := v.GetString("config-home")
 			path := filepath.Join(configDir, args[0])
 			if _, err := os.Stat(path); err != nil {
-				slog.Error("error locating config", "error", err)
-				os.Exit(1)
+				return fmt.Errorf("error locating config: %w", err)
 			}
 			if err := os.RemoveAll(path); err != nil {
-				slog.Error("error removing config", "config", args[0], "error", err.Error())
-				os.Exit(1)
+				return fmt.Errorf("error removing config: %s: %w", args[0], err)
 			}
 			slog.Info("removed config", "id", args[0], "path", path)
+			return nil
 		},
 	}
 

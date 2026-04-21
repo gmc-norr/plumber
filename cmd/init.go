@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log/slog"
 	"os"
 
@@ -13,25 +14,23 @@ func NewInitCmd(v *viper.Viper) *cobra.Command {
 		Use:        "init",
 		Short:      "Initialise plumber",
 		Deprecated: "initialisation is now done in the background",
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			configHome := v.GetString("config-home")
 			info, err := os.Stat(configHome)
 			if err != nil {
 				if os.IsNotExist(err) {
 					if err := os.MkdirAll(configHome, 0o755); err != nil {
-						slog.Error(err.Error())
-						os.Exit(1)
+						return fmt.Errorf("failed to create directory: %w", err)
 					}
 					slog.Info("created config home directory", "config-home", configHome)
-					os.Exit(0)
+					return nil
 				}
-				slog.Error(err.Error())
-				os.Exit(1)
+				return err
 			}
 			if info.IsDir() {
-				slog.Warn("config home directory already exists", "config-home", configHome)
-				os.Exit(1)
+				return fmt.Errorf("config home directory already exists: %s", configHome)
 			}
+			return nil
 		},
 	}
 }

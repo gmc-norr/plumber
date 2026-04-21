@@ -15,7 +15,7 @@ func NewEditCmd(v *viper.Viper) *cobra.Command {
 		Use:   "edit HASH",
 		Short: "Edit a plumberfile",
 		Args:  cobra.ExactArgs(1),
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			hash := args[0]
 			configDir := v.GetString("config-home")
 			path := filepath.Join(configDir, hash, plumber.PlumberFileName)
@@ -30,7 +30,7 @@ func NewEditCmd(v *viper.Viper) *cobra.Command {
 			command.Stdin = os.Stdin
 			command.Stdout = os.Stdout
 			command.Stderr = os.Stderr
-			cobra.CheckErr(command.Run())
+			return command.Run()
 		},
 	}
 	return cmd

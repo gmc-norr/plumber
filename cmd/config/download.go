@@ -3,7 +3,6 @@ package config
 import (
 	"fmt"
 	"log/slog"
-	"os"
 	"path/filepath"
 
 	"github.com/gmc-norr/plumber"
@@ -18,21 +17,19 @@ func NewDownloadCmd(v *viper.Viper) *cobra.Command {
 		Args: func(cmd *cobra.Command, args []string) error {
 			return cobra.ExactArgs(2)(cmd, args)
 		},
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			configRepo, _ := cmd.Flags().GetString("config-repo")
 			configVersion, _ := cmd.Flags().GetString("config-version")
 			configDir := viper.GetString("config-home")
 			forceDownload, _ := cmd.Flags().GetBool("force")
 			repo, err := plumber.NewGitRepo(configRepo)
 			if err != nil {
-				slog.Error("error initialising git repo", "error", err)
-				os.Exit(1)
+				return fmt.Errorf("error initialising git repo: %w", err)
 			}
 			slog.Debug("flags", "repo", configRepo, "version", configVersion)
 			pipeline, err := plumber.ParsePipelineName(args[0])
 			if err != nil {
-				slog.Error("error parsing pipeline name", "error", err)
-				os.Exit(1)
+				return fmt.Errorf("error parsing pipeline name: %w", err)
 			}
 
 			var pf plumber.PlumberFile
@@ -47,14 +44,13 @@ func NewDownloadCmd(v *viper.Viper) *cobra.Command {
 			pf.Path = filepath.Join(configDir, fmt.Sprintf("%x", h))
 
 			if pf.Exists() && !forceDownload {
-				slog.Error("config already exists", "path", pf.Path)
-				os.Exit(1)
+				return fmt.Errorf("config already exists: %s", pf.Path)
 			}
 			if err := plumber.DownloadConfig(repo, configVersion, &pf, viper.GetString("cache-home")); err != nil {
-				slog.Error("error downloading config", "error", err.Error())
-				os.Exit(1)
+				return fmt.Errorf("error downloading config: %w", err)
 			}
 			slog.Info("pipeline config downloaded", "engine", pf.Pipelines[0].Engine, "name", pf.Pipelines[0].Pipeline, "path", pf.Path)
+			return nil
 		},
 	}
 
