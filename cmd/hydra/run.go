@@ -16,10 +16,9 @@ import (
 	"github.com/spf13/viper"
 )
 
-var (
-	snakemakeArgs []string
-
-	runCmd = &cobra.Command{
+func NewRunCmd(v *viper.Viper) *cobra.Command {
+	var snakemakeArgs []string
+	cmd := &cobra.Command{
 		Use:   "run PIPELINE",
 		Short: "Run a Hydra Genetics pipeline",
 		Long:  `Run a Hydra Genetics pipeline with a configuration managed by plumber. Any arguments passed after -- will be passed directly to Snakemake.`,
@@ -42,17 +41,17 @@ var (
 			}
 			return nil
 		},
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			configRepo, _ := cmd.Flags().GetString("config-repo")
 			configVersion, _ := cmd.Flags().GetString("config-version")
-			configDir := viper.GetString("config-home")
+			configDir := v.GetString("config-home")
 			pipeline, err := plumber.ParsePipelineName(args[0])
 			pipeline.Revision, _ = cmd.Flags().GetString("version")
 			stringId, _ := cmd.Flags().GetString("analysis-id")
 			workdir, _ := cmd.Flags().GetString("workdir")
 
 			if err != nil {
-				slog.Error("error parsing pipeline name", "error", err.Error())
+				return fmt.Errorf("error parsing pipeline name: %w", err)
 			}
 
 			workdir, err = filepath.Abs(workdir)
@@ -63,7 +62,9 @@ var (
 				analysisId = uuid.New()
 			} else {
 				analysisId, err = uuid.Parse(stringId)
-				cobra.CheckErr(err)
+				if err != nil {
+					return err
+				}
 			}
 
 			analysis := plumber.NewAnalysis().
@@ -75,12 +76,10 @@ var (
 
 			if a, err := analysis.Read(); err != nil {
 				if !errors.Is(err, os.ErrNotExist) {
-					slog.Error("failed to read analysis file", "error", err)
-					os.Exit(1)
+					return fmt.Errorf("failed to read analysis file: %w", err)
 				}
 			} else if a.Id != analysis.Id {
-				slog.Error("existing analysis id does not match current analysis id")
-				os.Exit(1)
+				return fmt.Errorf("existing analysis id does not match current analysis id")
 			}
 
 			// Only fail on error for the first write, only log future write errors
@@ -95,29 +94,26 @@ var (
 			pf, err := plumber.ReadPlumberFile(filepath.Join(path, plumber.PlumberFileName))
 			if err != nil {
 				if errors.Is(err, plumber.ErrPlumberFileFormat) {
-					slog.Error("plumberfile validation failed", "error", err)
 					analysis.SetState(plumber.StateFailed)
 					if err := analysis.Write(); err != nil {
 						slog.Error("failed to write analysis file", "error", err)
 					}
-					os.Exit(1)
+					return fmt.Errorf("plumberfile validation failed: %w", err)
 				}
 				slog.Info("no existing config found, attempting download")
 				if configRepo == "" {
-					slog.Error("no config found, and no repo given")
 					analysis.SetState(plumber.StateFailed)
 					if err := analysis.Write(); err != nil {
 						slog.Error("failed to write analysis file", "error", err)
 					}
-					os.Exit(1)
+					return fmt.Errorf("no config found, and no repo given")
 				}
 				if configVersion == "" {
-					slog.Error("no config found, and no version given")
 					analysis.SetState(plumber.StateFailed)
 					if err := analysis.Write(); err != nil {
 						slog.Error("failed to write analysis file", "error", err)
 					}
-					os.Exit(1)
+					return fmt.Errorf("no config found, and no version given")
 				}
 				pf = plumber.PlumberFile{}
 				pf.Path = path
@@ -127,21 +123,20 @@ var (
 				})
 				repo, err := plumber.NewGitRepo(configRepo)
 				if err != nil {
-					slog.Error("error initialising git repo", "error", err)
 					analysis.SetState(plumber.StateFailed)
 					if err := analysis.Write(); err != nil {
 						slog.Error("failed to write analysis file", "error", err)
 					}
-					os.Exit(1)
+					return fmt.Errorf("error initialising git repo: %w", err)
 				}
-				err = plumber.DownloadConfig(repo, configVersion, &pf, viper.GetString("cache-home"))
+				err = plumber.DownloadConfig(repo, configVersion, &pf, v.GetString("cache-home"))
 				if err != nil {
-					slog.Error("error downloading config", "repo", repo, "path", pf.Path, "error", err)
 					analysis.SetState(plumber.StateFailed)
 					if err := analysis.Write(); err != nil {
 						slog.Error("failed to write analysis file", "error", err)
 					}
-					os.Exit(1)
+					slog.Error("error downloading config", "repo", repo, "path", pf.Path, "error", err)
+					return fmt.Errorf("error downloading config")
 				}
 			} else {
 				slog.Info("using existing config", "path", pf.Path, "version", pf.Pipelines[0].Version)
@@ -159,22 +154,20 @@ var (
 			slog.Info("checking python virtual environment", "name", env.Name, "python_version", env.Version)
 			exists, err := env.Exists()
 			if err != nil {
-				slog.Error("virtual environment error", "error", err)
 				analysis.SetState(plumber.StateFailed)
 				if err := analysis.Write(); err != nil {
 					slog.Error("failed to write analysis file", "error", err)
 				}
-				os.Exit(1)
+				return fmt.Errorf("virtual environment error: %w", err)
 			}
 			if !exists {
 				slog.Info("creating virtual environment", "name", env.Name, "python_version", env.Version)
 				if err := env.Create(); err != nil {
-					slog.Error("failed to set up python environment", "error", err)
 					analysis.SetState(plumber.StateFailed)
 					if err := analysis.Write(); err != nil {
 						slog.Error("failed to write analysis file", "error", err)
 					}
-					os.Exit(1)
+					return fmt.Errorf("failed to set up python environment: %w", err)
 				}
 			} else {
 				slog.Info("virtual environment already exists", "name", env.Name, "python_version", env.Version)
@@ -194,45 +187,43 @@ var (
 
 			// Download the pipeline
 			if err := smPipeline.Download(); err != nil {
-				slog.Error("failed to download pipeline", "error", err)
 				analysis.SetState(plumber.StateFailed)
 				if err := analysis.Write(); err != nil {
 					slog.Error("failed to write analysis file", "error", err)
 				}
-				os.Exit(1)
+				return fmt.Errorf("failed to download pipeline: %w", err)
 			}
 
 			// Install the pipeline
 			if err := smPipeline.Install(); err != nil {
-				slog.Error("failed to install pipeline", "error", err)
 				analysis.SetState(plumber.StateFailed)
 				if err := analysis.Write(); err != nil {
 					slog.Error("failed to write analysis file", "error", err)
 				}
-				os.Exit(1)
+				return fmt.Errorf("failed to install pipeline: %w", err)
 			}
 
 			slog.Debug("pipeline environment", "env", smPipeline.Env)
 			profiles, _ := cmd.Flags().GetString("profile")
 			if err := smPipeline.Run(profiles, snakemakeArgs); err != nil {
-				slog.Error("error running pipeline", "error", err.Error())
 				analysis.SetState(plumber.StateFailed)
 				if err := analysis.Write(); err != nil {
 					slog.Error("failed to write analysis file", "error", err)
 				}
-				os.Exit(1)
+				return fmt.Errorf("error running pipeline: %w", err)
 			}
 			analysis.SetState(plumber.StateSuccess)
 			if err := analysis.Write(); err != nil {
 				slog.Error("failed to write analysis file", "error", err)
 			}
+			return nil
 		},
 	}
-)
 
-func init() {
-	runCmd.Flags().StringP("version", "", "main", "tag/branch/commit of the pipeline to run")
-	runCmd.Flags().StringP("workdir", "d", ".", "directory where the pipeline should be executed")
-	runCmd.Flags().StringP("profile", "p", "", "comma-separated list of profiles to use for the execution")
-	runCmd.Flags().String("analysis-id", "", "external UUID of the analysis. If one is not given, and ID will be generated.")
+	cmd.Flags().StringP("version", "", "main", "tag/branch/commit of the pipeline to run")
+	cmd.Flags().StringP("workdir", "d", ".", "directory where the pipeline should be executed")
+	cmd.Flags().StringP("profile", "p", "", "comma-separated list of profiles to use for the execution")
+	cmd.Flags().String("analysis-id", "", "external UUID of the analysis. If one is not given, and ID will be generated.")
+
+	return cmd
 }

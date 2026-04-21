@@ -15,29 +15,12 @@ import (
 	"github.com/spf13/viper"
 )
 
-func InitConfigDir(cmd *cobra.Command, args []string) error {
-	configDir := viper.GetString("config-home")
-	slog.Debug("initialising config dir", "path", configDir)
-	return os.MkdirAll(configDir, 0o777)
-}
-
-func InitCacheDir(cmd *cobra.Command, args []string) error {
-	cacheDir := viper.GetString("cache-home")
-	slog.Debug("initialising cache dir", "path", cacheDir)
-	return os.MkdirAll(cacheDir, 0o777)
-}
-
-func MakeDirs(cmd *cobra.Command, args []string) error {
-	return errors.Join(InitConfigDir(cmd, args), InitCacheDir(cmd, args))
-}
-
-func initConfig() {
+func initConfig(v *viper.Viper) error {
 	configHome, ok := os.LookupEnv("XDG_CONFIG_HOME")
 	if !ok {
 		home, err := os.UserHomeDir()
 		if err != nil {
-			slog.Error("unable to find user's home directory")
-			os.Exit(1)
+			return fmt.Errorf("unable to find user's home directory")
 		}
 		configHome = filepath.Join(home, ".config")
 	}
@@ -46,36 +29,32 @@ func initConfig() {
 	if !ok {
 		home, err := os.UserHomeDir()
 		if err != nil {
-			slog.Error("unable to find user's home directory")
-			os.Exit(1)
+			return fmt.Errorf("unable to find user's home directory")
 		}
 		cacheHome = filepath.Join(home, ".cache")
 	}
 
-	viper.SetDefault("config-home", filepath.Join(configHome, "plumber"))
-	viper.SetDefault("cache-home", filepath.Join(cacheHome, "plumber"))
-	viper.SetDefault("log-level", "WARN")
-	viper.Set("plumber-version", version)
+	v.SetDefault("config-home", filepath.Join(configHome, "plumber"))
+	v.SetDefault("cache-home", filepath.Join(cacheHome, "plumber"))
+	v.SetDefault("log-level", "WARN")
+	v.Set("plumber-version", version)
 
-	viper.MustBindEnv("config-home", "PLUMBER_CONFIG_HOME")
-	viper.MustBindEnv("cache-home", "PLUMBER_CACHE_HOME")
-	viper.MustBindEnv("log-level", "PLUMBER_LOGLEVEL")
+	v.MustBindEnv("config-home", "PLUMBER_CONFIG_HOME")
+	v.MustBindEnv("cache-home", "PLUMBER_CACHE_HOME")
+	v.MustBindEnv("log-level", "PLUMBER_LOGLEVEL")
 
-	viper.MustBindEnv("certs", "PLUMBER_CERTS")
-	viper.MustBindEnv("webhook-url", "PLUMBER_WEBHOOK_URL")
-	viper.MustBindEnv("webhook-api-key", "PLUMBER_WEBHOOK_API_KEY")
-	viper.MustBindEnv("webhook-no-verify", "PLUMBER_WEBHOOK_NO_VERIFY")
+	v.MustBindEnv("certs", "PLUMBER_CERTS")
+	v.MustBindEnv("webhook-url", "PLUMBER_WEBHOOK_URL")
+	v.MustBindEnv("webhook-api-key", "PLUMBER_WEBHOOK_API_KEY")
+	v.MustBindEnv("webhook-no-verify", "PLUMBER_WEBHOOK_NO_VERIFY")
 
-	if err := logger(); err != nil {
-		slog.Error(err.Error())
-		os.Exit(1)
-	}
+	return logger(v)
 }
 
-func logger() error {
+func logger(v *viper.Viper) error {
 	logOpts := slog.HandlerOptions{}
 
-	logLevel := viper.GetString("log-level")
+	logLevel := v.GetString("log-level")
 	switch strings.ToLower(logLevel) {
 	case "debug":
 		logOpts.Level = slog.LevelDebug
@@ -94,28 +73,39 @@ func logger() error {
 	return nil
 }
 
-var rootCmd = &cobra.Command{
-	Use:               "plumber",
-	Short:             "Run pipelines",
-	Version:           version,
-	PersistentPreRunE: MakeDirs,
-}
 
-func init() {
-	cobra.OnInitialize(initConfig)
+func NewRootCmd(v *viper.Viper) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "plumber",
+		Short:   "Run pipelines",
+		Version: version,
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			initErr := initConfig(v)
+			configErr := os.MkdirAll(v.GetString("config-home"), 0o777)
+			cacheErr := os.MkdirAll(v.GetString("cache-home"), 0o777)
+			err := errors.Join(initErr, configErr, cacheErr)
+			if err != nil {
+				return fmt.Errorf("failed to initialise plumber: %w", err)
+			}
+			return nil
+		},
+		SilenceUsage: true,
+	}
 
-	rootCmd.AddCommand(config.ConfigCmd)
-	rootCmd.AddCommand(nextflow.NextflowCmd)
-	rootCmd.AddCommand(hydra.HydraCmd)
-	rootCmd.AddCommand(initCmd)
+	cmd.AddCommand(config.ConfigCmd)
+	cmd.AddCommand(nextflow.NewNextflowCmd(v))
+	cmd.AddCommand(hydra.NewHydraCmd(v))
+	cmd.AddCommand(initCmd)
 
-	rootCmd.PersistentFlags().String("config-repo", "https://github.com/gmc-norr/config-files", "URL or path to the config file git repository")
-	rootCmd.PersistentFlags().String("config-version", "main", "Commitish representing the version of the config file repository to use")
-	rootCmd.PersistentFlags().String("certs", "", "Path to CA certificates to use for webhook TLS")
-	rootCmd.PersistentFlags().String("webhook-url", "", "Webhook URL where to send status updates")
-	rootCmd.PersistentFlags().String("webhook-api-key", "", "API key for the webhook")
-	rootCmd.PersistentFlags().Bool("webhook-no-verify", false, "Don't verify TLS certificates for webhooks (INSECURE)")
-	rootCmd.PersistentFlags().StringP("log-level", "l", "WARN", "log level")
+	cmd.PersistentFlags().String("config-repo", "https://github.com/gmc-norr/config-files", "URL or path to the config file git repository")
+	cmd.PersistentFlags().String("config-version", "main", "Commitish representing the version of the config file repository to use")
+	cmd.PersistentFlags().String("certs", "", "Path to CA certificates to use for webhook TLS")
+	cmd.PersistentFlags().String("webhook-url", "", "Webhook URL where to send status updates")
+	cmd.PersistentFlags().String("webhook-api-key", "", "API key for the webhook")
+	cmd.PersistentFlags().Bool("webhook-no-verify", false, "Don't verify TLS certificates for webhooks (INSECURE)")
+	cmd.PersistentFlags().StringP("log-level", "l", "WARN", "log level")
 
-	_ = viper.BindPFlags(rootCmd.PersistentFlags())
+	_ = v.BindPFlags(cmd.PersistentFlags())
+
+	return cmd
 }
