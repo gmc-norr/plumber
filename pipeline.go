@@ -309,6 +309,11 @@ func (p *SnakemakePipeline) Run(profileName string, extraArgs []string) error {
 	return cmd.Wait()
 }
 
+// Cleanup removes intermediate files from previous runs. Currently does nothing for Snakemake pipelines.
+func (p SnakemakePipeline) Cleanup() error {
+	return nil
+}
+
 // NextflowPipeline represents a Nextflow pipeline.
 type NextflowPipeline struct {
 	// The config for the pipeline
