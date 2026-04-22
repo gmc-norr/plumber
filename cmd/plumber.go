@@ -9,8 +9,6 @@ import (
 	"strings"
 
 	"github.com/gmc-norr/plumber/cmd/config"
-	"github.com/gmc-norr/plumber/cmd/hydra"
-	"github.com/gmc-norr/plumber/cmd/nextflow"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -92,8 +90,8 @@ func NewRootCmd(v *viper.Viper) *cobra.Command {
 	}
 
 	cmd.AddCommand(config.NewConfigCmd(v))
-	cmd.AddCommand(nextflow.NewNextflowCmd(v))
-	cmd.AddCommand(hydra.NewHydraCmd(v))
+	cmd.AddCommand(NewNextflowCmd(v))
+	cmd.AddCommand(NewHydraCmd(v))
 	cmd.AddCommand(NewInitCmd(v))
 	cmd.AddCommand(NewRunCmd(v))
 
