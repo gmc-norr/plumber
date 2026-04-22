@@ -95,6 +95,7 @@ func NewRootCmd(v *viper.Viper) *cobra.Command {
 	cmd.AddCommand(nextflow.NewNextflowCmd(v))
 	cmd.AddCommand(hydra.NewHydraCmd(v))
 	cmd.AddCommand(NewInitCmd(v))
+	cmd.AddCommand(NewRunCmd(v))
 
 	cmd.PersistentFlags().String("config-repo", "https://github.com/gmc-norr/config-files", "URL or path to the config file git repository")
 	cmd.PersistentFlags().String("config-version", "main", "Commitish representing the version of the config file repository to use")

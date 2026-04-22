@@ -86,3 +86,60 @@ func TestHydraRunAnalyisFile(t *testing.T) {
 		t.Error(err)
 	}
 }
+
+// Test that `run` exists
+func TestRun(t *testing.T) {
+	cmd := newTestRootCmd(t)
+	_, _, _, err := runInTempdir(t, cmd, []string{"run", "--help"})
+	if err != nil {
+		t.Error(err)
+	}
+}
+
+func TestRunNextflow(t *testing.T) {
+	v := newTestViper(t)
+	cmd := NewRootCmd(v)
+	wd, _, _, err := runInTempdir(t, cmd, []string{"run", "nf-core/raredisease", "--version", "2.4.0"})
+
+	if err == nil {
+		t.Error("expected execution to fail but it didn't")
+	}
+
+	_, err = findPlumberFile(v)
+	if err != nil {
+		t.Error(err)
+	}
+
+	analysisFilePath := filepath.Join(wd, `.plumber-analysis.json`)
+	if _, err := os.Stat(analysisFilePath); err != nil {
+		t.Error(err)
+	}
+
+	if _, err := os.Stat(analysisFilePath); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestRunSnakemake(t *testing.T) {
+	v := newTestViper(t)
+	cmd := NewRootCmd(v)
+	wd, _, _, err := runInTempdir(t, cmd, []string{"run", "genomic-medicine-sweden/Twist_Solid", "--version", "v0.23.0", "--profile", "slurm_hg19_clinical"})
+
+	if err == nil {
+		t.Error("expected execution to fail but it didn't")
+	}
+
+	_, err = findPlumberFile(v)
+	if err != nil {
+		t.Error(err)
+	}
+
+	analysisFilePath := filepath.Join(wd, `.plumber-analysis.json`)
+	if _, err := os.Stat(analysisFilePath); err != nil {
+		t.Error(err)
+	}
+
+	if _, err := os.Stat(analysisFilePath); err != nil {
+		t.Error(err)
+	}
+}
