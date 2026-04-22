@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"syscall"
 
 	"github.com/gmc-norr/plumber"
 	"github.com/gmc-norr/plumber/pyenv"
@@ -111,6 +113,35 @@ func NewRunCmd(v *viper.Viper) *cobra.Command {
 					webhookErr = webhook.SetCertificates(v.GetString("certs"))
 				}
 			}
+
+			slog.Debug("webhook", "client", webhook)
+			slog.Debug("setting up signal handler")
+			go func() {
+				c := make(chan os.Signal, 1)
+				signal.Notify(c, syscall.SIGTERM, syscall.SIGINT)
+				s := <-c
+				slog.Error("signal received, cleaning up and exiting", "signal", s)
+				analysis.SetState(plumber.StateFailed)
+				if err := analysis.Write(); err != nil {
+					slog.Error("failed to write analysis file", "error", err)
+				}
+				if webhook != nil {
+					msg := plumber.WebhookMessage{
+						AnalysisId:      analysis.Id,
+						Pipeline:        analysis.Pipeline.Pipeline,
+						PipelineVersion: analysis.Pipeline.Revision,
+						Workdir:         analysis.Workdir,
+						Message:         "initialising plumber",
+						MessageType:     plumber.MessageInit,
+						Success:         webhookErr == nil,
+						Error:           plumber.NewMarshableError(webhookErr),
+					}
+					if err := webhook.Send(msg); err != nil {
+						slog.Error("failed to send init message to webhook", "error", err)
+					}
+				}
+				os.Exit(1)
+			}()
 
 			if webhook != nil {
 				msg := plumber.WebhookMessage{
