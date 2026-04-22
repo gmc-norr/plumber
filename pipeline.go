@@ -44,6 +44,15 @@ func ValidPipelineName(name string) bool {
 	return true
 }
 
+type PipelineRunError struct {
+	Log []string
+	Err error
+}
+
+func (err PipelineRunError) Error() string {
+	return err.Err.Error()
+}
+
 // Pipeline represents a pipeline as the name of the repo (<org>/<pipeline>), as well as
 // organisation and pipeline separately.
 type Pipeline struct {
@@ -343,7 +352,7 @@ func (l *LineBuffer) Add(line string) {
 }
 
 // Run a nextflow pipeline.
-func (p *NextflowPipeline) Run(profile string, extraArgs []string) ([]string, error) {
+func (p *NextflowPipeline) Run(profile string, extraArgs []string) error {
 	slog.Info("starting pipeline execution")
 	slog.Debug("settings", "plumber file", p.PlumberFile)
 	var args []string
@@ -385,17 +394,17 @@ func (p *NextflowPipeline) Run(profile string, extraArgs []string) ([]string, er
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		return logTail.Lines, err
+		return err
 	}
 
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
-		return logTail.Lines, err
+		return err
 	}
 
 	slog.Debug("running command", "cmd", cmd.String())
 	if err := cmd.Start(); err != nil {
-		return logTail.Lines, err
+		return err
 	}
 
 	stdoutScanner := bufio.NewScanner(stdout)
@@ -426,7 +435,15 @@ func (p *NextflowPipeline) Run(profile string, extraArgs []string) ([]string, er
 		}
 	}()
 
-	return logTail.Lines, cmd.Wait()
+	err = cmd.Wait()
+	if err != nil {
+		return PipelineRunError{
+			Log: logTail.Lines,
+			Err: err,
+		}
+	}
+
+	return nil
 }
 
 // Cleanup removes intermediate files from previous executions.

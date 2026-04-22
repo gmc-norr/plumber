@@ -237,10 +237,15 @@ func NewRunCmd(v *viper.Viper) *cobra.Command {
 			if err := analysis.Write(); err != nil {
 				slog.Error("failed to write analysis file", "error", err)
 			}
-			if lastLogLines, err := nfPipeline.Run(profiles, nextflowArgs); err != nil {
+			if err := nfPipeline.Run(profiles, nextflowArgs); err != nil {
 				analysis.SetState(plumber.StateFailed)
 				if err := analysis.Write(); err != nil {
 					slog.Error("failed to write analysis file", "error", err)
+				}
+				var loglines []string
+				var runErr plumber.PipelineRunError
+				if errors.As(err, &runErr) {
+					loglines = runErr.Log
 				}
 				if webhook != nil {
 					msg := plumber.WebhookMessage{
@@ -248,7 +253,7 @@ func NewRunCmd(v *viper.Viper) *cobra.Command {
 						Pipeline:        nfPipeline.Pipelines[0].Pipeline.String(),
 						PipelineVersion: nfPipeline.Pipelines[0].Version,
 						Workdir:         nfPipeline.Workdir,
-						Message:         fmt.Sprintf("pipeline failed, end of log:\n%s", strings.Join(lastLogLines, "\n")),
+						Message:         fmt.Sprintf("pipeline failed, end of log:\n%s", strings.Join(loglines, "\n")),
 						MessageType:     plumber.MessageEnd,
 						Success:         false,
 						Error:           plumber.NewMarshableError(err),
