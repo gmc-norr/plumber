@@ -128,7 +128,7 @@ func NewRunCmd(v *viper.Viper) *cobra.Command {
 				if webhook != nil {
 					msg := plumber.WebhookMessage{
 						AnalysisId:      analysis.Id,
-						Pipeline:        analysis.Pipeline.Pipeline,
+						Pipeline:        analysis.Pipeline.Repo,
 						PipelineVersion: analysis.Pipeline.Revision,
 						Workdir:         analysis.Workdir,
 						Message:         "initialising plumber",
@@ -146,9 +146,9 @@ func NewRunCmd(v *viper.Viper) *cobra.Command {
 			if webhook != nil {
 				msg := plumber.WebhookMessage{
 					AnalysisId:      analysis.Id,
-					Pipeline:        pipeline.String(),
-					PipelineVersion: pipeline.Revision,
-					Workdir:         workdir,
+					Pipeline:        analysis.Pipeline.Repo,
+					PipelineVersion: analysis.Pipeline.Revision,
+					Workdir:         analysis.Workdir,
 					Message:         "initialising plumber",
 					MessageType:     plumber.MessageInit,
 					Success:         webhookErr == nil,
@@ -292,7 +292,7 @@ func NewRunCmd(v *viper.Viper) *cobra.Command {
 			if webhook != nil {
 				msg := plumber.WebhookMessage{
 					AnalysisId:      analysis.Id,
-					Pipeline:        analysis.Pipeline.Pipeline,
+					Pipeline:        analysis.Pipeline.Repo,
 					PipelineVersion: analysis.Pipeline.Revision,
 					Workdir:         analysis.Workdir,
 					Message:         "pipeline started",
@@ -322,7 +322,7 @@ func NewRunCmd(v *viper.Viper) *cobra.Command {
 				if webhook != nil {
 					msg := plumber.WebhookMessage{
 						AnalysisId:      analysis.Id,
-						Pipeline:        analysis.Pipeline.Pipeline,
+						Pipeline:        analysis.Pipeline.Repo,
 						PipelineVersion: analysis.Pipeline.Revision,
 						Workdir:         analysis.Workdir,
 						Message:         fmt.Sprintf("pipeline failed, end of log:\n%s", strings.Join(loglines, "\n")),
@@ -345,7 +345,7 @@ func NewRunCmd(v *viper.Viper) *cobra.Command {
 				if webhook != nil {
 					msg := plumber.WebhookMessage{
 						AnalysisId:      analysis.Id,
-						Pipeline:        analysis.Pipeline.Pipeline,
+						Pipeline:        analysis.Pipeline.Repo,
 						PipelineVersion: analysis.Pipeline.Revision,
 						Workdir:         analysis.Workdir,
 						Message:         "cleaning up intermediate files",
@@ -368,7 +368,7 @@ func NewRunCmd(v *viper.Viper) *cobra.Command {
 			if webhook != nil {
 				msg := plumber.WebhookMessage{
 					AnalysisId:      analysis.Id,
-					Pipeline:        analysis.Pipeline.Pipeline,
+					Pipeline:        analysis.Pipeline.Repo,
 					PipelineVersion: analysis.Pipeline.Revision,
 					Workdir:         analysis.Workdir,
 					Message:         "pipeline finished",
