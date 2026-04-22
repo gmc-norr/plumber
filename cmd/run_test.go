@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/gmc-norr/plumber"
 	"github.com/spf13/cobra"
 )
 
@@ -141,5 +142,20 @@ func TestRunSnakemake(t *testing.T) {
 
 	if _, err := os.Stat(analysisFilePath); err != nil {
 		t.Error(err)
+	}
+
+	analysis := plumber.NewAnalysis().WithWorkdir(wd)
+	a, err := analysis.Read()
+	if err != nil {
+		t.Error(err)
+	}
+	if a.Pipeline.Repo != "genomic-medicine-sweden/Twist_Solid" {
+		t.Errorf("expected analysis pipeline %s, got %s", "genomic-medicine-sweden/Twist_Solid", a.Pipeline.Repo)
+	}
+	if a.Pipeline.Revision != "v0.23.0" {
+		t.Errorf("expected analysis pipeline version %s, got %s", "v0.23.0", a.Pipeline.Revision)
+	}
+	if a.Workdir != wd {
+		t.Errorf("expected analysis workdir %s, got %s", wd, a.Workdir)
 	}
 }
