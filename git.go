@@ -72,7 +72,7 @@ func (r GitRepo) Clone() error {
 }
 
 func (r GitRepo) Checkout(version string) error {
-	cmd := exec.Command("git", "checkout", version)
+	cmd := exec.Command("git", "checkout", version, "--")
 	cmd.Dir = r.LocalPath
 	slog.Debug("running git command", "cmd", cmd.String(), "workdir", cmd.Dir)
 	o, err := cmd.CombinedOutput()
