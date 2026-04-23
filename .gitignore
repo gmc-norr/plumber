@@ -3,6 +3,7 @@ work
 .nextflow.log*
 .nextflow
 .envrc
+.plumber-analysis.json
 samplesheet.csv
 /bin
 .snakemake
