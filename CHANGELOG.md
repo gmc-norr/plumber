@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.2.0](https://github.com/gmc-norr/plumber/compare/v0.1.0...v0.2.0) (2026-04-23)
+
+
+### Features
+
+* add functions for computing config file checksums ([0a37d35](https://github.com/gmc-norr/plumber/commit/0a37d35a30b33c2cfe3b7cf80421a7c0396a419b))
+* add pyproject.toml support for snakemake pipelines ([#45](https://github.com/gmc-norr/plumber/issues/45)) ([f8b63ba](https://github.com/gmc-norr/plumber/commit/f8b63ba7a9582610e5c754b998b57838825442cf))
+* **cli:** use a single run command ([#50](https://github.com/gmc-norr/plumber/issues/50)) ([2255f17](https://github.com/gmc-norr/plumber/commit/2255f175adcdbcc1d6d2131fc4cc18bd196b0dd4))
+* download config files to local cache ([691e5b4](https://github.com/gmc-norr/plumber/commit/691e5b40d6d9a6bea430a1276b2bc0fdec735acc))
+* initialise config directory in the root command ([1af61d0](https://github.com/gmc-norr/plumber/commit/1af61d053d55bd2ab9ce9e855ad4701f8d90ac60))
+* write checksums when downloading a config ([12e6f38](https://github.com/gmc-norr/plumber/commit/12e6f38e1322fce300d1658b75959065b63c659e))
+
+
+### Bug Fixes
+
+* issue with ambigous versions on checkout ([#52](https://github.com/gmc-norr/plumber/issues/52)) ([1194aa7](https://github.com/gmc-norr/plumber/commit/1194aa7a83bebd7dba424fdd4c00ea4c05065d08))
+* set analysis success for snakemake pipelines ([#46](https://github.com/gmc-norr/plumber/issues/46)) ([d2164a8](https://github.com/gmc-norr/plumber/commit/d2164a89ff6f622237ff006065832933db7e637e))
+* **snakemake:** proper check of python version ([458befd](https://github.com/gmc-norr/plumber/commit/458befdc4ce62f1254eb7b2c95a951698375c9fe))
+* strip ansi escape codes from nextflow output ([#44](https://github.com/gmc-norr/plumber/issues/44)) ([cf13b20](https://github.com/gmc-norr/plumber/commit/cf13b20c0f459815d38f03953119ef3971fb3ca3))
+
 ## 0.1.0 (2026-03-27)
 
 This is the first release of plumber. Things will change, and until those pending changes have been addressed plumber will have a major version of 0. Things will break.
