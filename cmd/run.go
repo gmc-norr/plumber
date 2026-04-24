@@ -1,15 +1,14 @@
 package main
 
 import (
+	"context"
 	"crypto/md5"
 	"errors"
 	"fmt"
 	"log/slog"
 	"os"
-	"os/signal"
 	"path/filepath"
 	"strings"
-	"syscall"
 
 	"github.com/gmc-norr/plumber"
 	"github.com/gmc-norr/plumber/pyenv"
@@ -19,7 +18,7 @@ import (
 )
 
 type Runner interface {
-	Run(profile string, extraArgs []string) error
+	Run(ctx context.Context, profile string, extraArgs []string) error
 	Cleanup() error
 }
 
@@ -49,6 +48,7 @@ func NewRunCmd(v *viper.Viper) *cobra.Command {
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
 			workdir, _ := cmd.Flags().GetString("workdir")
 			configRepo, _ := cmd.Flags().GetString("config-repo")
 			configVersion := v.GetString("config-version")
@@ -115,32 +115,30 @@ func NewRunCmd(v *viper.Viper) *cobra.Command {
 			}
 
 			slog.Debug("webhook", "client", webhook)
-			slog.Debug("setting up signal handler")
-			go func() {
-				c := make(chan os.Signal, 1)
-				signal.Notify(c, syscall.SIGTERM, syscall.SIGINT)
-				s := <-c
-				slog.Error("signal received, cleaning up and exiting", "signal", s)
-				analysis.SetState(plumber.StateFailed)
-				if err := analysis.Write(); err != nil {
-					slog.Error("failed to write analysis file", "error", err)
+
+			defer func() {
+				if ctx.Err() != nil {
+					slog.Error("context error", "error", ctx.Err())
+					analysis.SetState(plumber.StateFailed)
+					if err := analysis.Write(); err != nil {
+						slog.Error("failed to write analysis file", "error", err)
+					}
 				}
-				if webhook != nil {
+				if webhook != nil && ctx.Err() != nil {
 					msg := plumber.WebhookMessage{
 						AnalysisId:      analysis.Id,
 						Pipeline:        analysis.Pipeline.Repo,
 						PipelineVersion: analysis.Pipeline.Revision,
 						Workdir:         analysis.Workdir,
-						Message:         "initialising plumber",
-						MessageType:     plumber.MessageInit,
-						Success:         webhookErr == nil,
-						Error:           plumber.NewMarshableError(webhookErr),
+						Message:         "execution failed",
+						MessageType:     plumber.MessageEnd,
+						Success:         false,
+						Error:           plumber.NewMarshableError(ctx.Err()),
 					}
-					if err := webhook.Send(msg); err != nil {
+					if err := webhook.Send(ctx, msg); err != nil {
 						slog.Error("failed to send init message to webhook", "error", err)
 					}
 				}
-				os.Exit(1)
 			}()
 
 			if webhook != nil {
@@ -154,7 +152,7 @@ func NewRunCmd(v *viper.Viper) *cobra.Command {
 					Success:         webhookErr == nil,
 					Error:           plumber.NewMarshableError(webhookErr),
 				}
-				if err := webhook.Send(msg); err != nil {
+				if err := webhook.Send(ctx, msg); err != nil {
 					return fmt.Errorf("failed to send init message to webhook: %w", err)
 				}
 			}
@@ -204,7 +202,7 @@ func NewRunCmd(v *viper.Viper) *cobra.Command {
 					}
 					return fmt.Errorf("error initialising git repo: %w", err)
 				}
-				err = plumber.DownloadConfig(repo, configVersion, &pf, v.GetString("cache-home"))
+				err = plumber.DownloadConfig(ctx, repo, configVersion, &pf, v.GetString("cache-home"))
 				if err != nil {
 					analysis.SetState(plumber.StateFailed)
 					if err := analysis.Write(); err != nil {
@@ -299,7 +297,7 @@ func NewRunCmd(v *viper.Viper) *cobra.Command {
 					MessageType:     plumber.MessageStart,
 					Success:         true,
 				}
-				if err := webhook.Send(msg); err != nil {
+				if err := webhook.Send(ctx, msg); err != nil {
 					slog.Error("failed to send message to webhook", "error", err)
 				}
 			}
@@ -309,7 +307,7 @@ func NewRunCmd(v *viper.Viper) *cobra.Command {
 				slog.Error("failed to write analysis file", "error", err)
 			}
 
-			if err := runner.Run(profile, engineArgs); err != nil {
+			if err := runner.Run(ctx, profile, engineArgs); err != nil {
 				analysis.SetState(plumber.StateFailed)
 				if err := analysis.Write(); err != nil {
 					slog.Error("failed to write analysis file", "error", err)
@@ -330,7 +328,7 @@ func NewRunCmd(v *viper.Viper) *cobra.Command {
 						Success:         false,
 						Error:           plumber.NewMarshableError(err),
 					}
-					if err := webhook.Send(msg); err != nil {
+					if err := webhook.Send(ctx, msg); err != nil {
 						slog.Error("failed to send message to webhook", "error", err)
 					}
 				}
@@ -352,7 +350,7 @@ func NewRunCmd(v *viper.Viper) *cobra.Command {
 						MessageType:     plumber.MessageProgress,
 						Success:         true,
 					}
-					if err := webhook.Send(msg); err != nil {
+					if err := webhook.Send(ctx, msg); err != nil {
 						slog.Error("failed to send message to webhook", "error", err)
 					}
 				}
@@ -375,7 +373,7 @@ func NewRunCmd(v *viper.Viper) *cobra.Command {
 					MessageType:     plumber.MessageEnd,
 					Success:         true,
 				}
-				if err := webhook.Send(msg); err != nil {
+				if err := webhook.Send(ctx, msg); err != nil {
 					slog.Error("failed to send message to webhook", "error", err)
 				}
 			}

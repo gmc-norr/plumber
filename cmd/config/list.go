@@ -19,6 +19,7 @@ func NewListCmd(v *viper.Viper) *cobra.Command {
 		Short: "List existing configs",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
 			listRemote, _ := cmd.Flags().GetBool("remote")
 			tw := tabwriter.NewWriter(os.Stdout, 1, 2, 2, ' ', 0)
 
@@ -30,7 +31,7 @@ func NewListCmd(v *viper.Viper) *cobra.Command {
 				if err != nil {
 					return fmt.Errorf("error initialising git repo: %w", err)
 				}
-				pf, err := plumber.DownloadConfigRepo(&repo, configVersion, v.GetString("cache-home"))
+				pf, err := plumber.DownloadConfigRepo(ctx, &repo, configVersion, v.GetString("cache-home"))
 				if err != nil {
 					return fmt.Errorf("error getting config repo: %w", err)
 				}

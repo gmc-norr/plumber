@@ -1,12 +1,15 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"syscall"
 
 	"github.com/gmc-norr/plumber/cmd/config"
 	"github.com/spf13/cobra"
@@ -71,6 +74,18 @@ func logger(v *viper.Viper) error {
 	return nil
 }
 
+func Context() context.Context {
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		c := make(chan os.Signal, 1)
+		signal.Notify(c, syscall.SIGTERM, syscall.SIGINT)
+		s := <-c
+		slog.Error("signal received, cleaning up and exiting", "signal", s)
+		cancel()
+	}()
+	return ctx
+}
+
 func NewRootCmd(v *viper.Viper) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "plumber",
@@ -88,6 +103,8 @@ func NewRootCmd(v *viper.Viper) *cobra.Command {
 		},
 		SilenceUsage: true,
 	}
+
+	cmd.SetContext(Context())
 
 	cmd.AddCommand(config.NewConfigCmd(v))
 	cmd.AddCommand(NewNextflowCmd(v))

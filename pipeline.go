@@ -13,6 +13,8 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"syscall"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
@@ -255,7 +257,7 @@ func (w LogWriter) Write(b []byte) (n int, err error) {
 }
 
 // Run a Snakemake pipeline
-func (p *SnakemakePipeline) Run(profileName string, extraArgs []string) error {
+func (p *SnakemakePipeline) Run(ctx context.Context, profileName string, extraArgs []string) error {
 	if profileName == "" {
 		return fmt.Errorf("missing profile")
 	}
@@ -281,7 +283,11 @@ func (p *SnakemakePipeline) Run(profileName string, extraArgs []string) error {
 	args = append(args, p.Args()...)
 	args = append(args, extraArgs...)
 
-	cmd := exec.Command("snakemake", args...)
+	cmd := exec.CommandContext(ctx, "snakemake", args...)
+	cmd.WaitDelay = 1 * time.Minute
+	cmd.Cancel = func() error {
+		return cmd.Process.Signal(syscall.SIGTERM)
+	}
 	if p.Workdir != "" {
 		slog.Debug("setting working directory", "path", p.Workdir)
 		cmd.Dir = p.Workdir
@@ -357,7 +363,7 @@ func (l *LineBuffer) Add(line string) {
 }
 
 // Run a nextflow pipeline.
-func (p *NextflowPipeline) Run(profile string, extraArgs []string) error {
+func (p *NextflowPipeline) Run(ctx context.Context, profile string, extraArgs []string) error {
 	slog.Info("starting pipeline execution")
 	slog.Debug("settings", "plumber file", p.PlumberFile)
 	var args []string
@@ -387,7 +393,11 @@ func (p *NextflowPipeline) Run(profile string, extraArgs []string) error {
 	}
 	args = append(args, extraArgs...)
 
-	cmd := exec.Command("nextflow", args...)
+	cmd := exec.CommandContext(ctx, "nextflow", args...)
+	cmd.WaitDelay = 1 * time.Minute
+	cmd.Cancel = func() error {
+		return cmd.Process.Signal(syscall.SIGTERM)
+	}
 	cmd.Env = os.Environ()
 	for key, value := range p.Env {
 		slog.Debug("setting command environment", "key", key, "value", value)

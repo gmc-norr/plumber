@@ -1,6 +1,7 @@
 package plumber
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -27,34 +28,34 @@ func NewGitRepo(path string) (GitRepo, error) {
 	return r, nil
 }
 
-func (r GitRepo) Sync() error {
+func (r GitRepo) Sync(ctx context.Context) error {
 	if r.LocalPath == "" {
 		r.LocalPath = filepath.Base(r.Url.Path)
 	}
 	if info, err := os.Stat(r.LocalPath); err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return r.Clone()
+			return r.Clone(ctx)
 		}
 		return err
 	} else if !info.IsDir() {
 		return fmt.Errorf("local path is not a directory")
 	}
 
-	if err := r.Fetch(); err != nil {
+	if err := r.Fetch(ctx); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (r GitRepo) Fetch() error {
-	cmd := exec.Command("git", "fetch")
+func (r GitRepo) Fetch(ctx context.Context) error {
+	cmd := exec.CommandContext(ctx, "git", "fetch")
 	cmd.Dir = r.LocalPath
 	slog.Debug("running git command", "cmd", cmd.String(), "workdir", cmd.Dir)
 	return cmd.Run()
 }
 
-func (r GitRepo) Clone() error {
+func (r GitRepo) Clone(ctx context.Context) error {
 	argv := []string{
 		"clone",
 		r.Url.String(),
@@ -62,7 +63,7 @@ func (r GitRepo) Clone() error {
 	if r.LocalPath != "" {
 		argv = append(argv, r.LocalPath)
 	}
-	cmd := exec.Command("git", argv...)
+	cmd := exec.CommandContext(ctx, "git", argv...)
 	slog.Debug("running git command", "cmd", cmd.String(), "workdir", cmd.Dir)
 	o, err := cmd.CombinedOutput()
 	if err != nil {
@@ -71,8 +72,8 @@ func (r GitRepo) Clone() error {
 	return nil
 }
 
-func (r GitRepo) Checkout(version string) error {
-	cmd := exec.Command("git", "checkout", version, "--")
+func (r GitRepo) Checkout(ctx context.Context, version string) error {
+	cmd := exec.CommandContext(ctx, "git", "checkout", version, "--")
 	cmd.Dir = r.LocalPath
 	slog.Debug("running git command", "cmd", cmd.String(), "workdir", cmd.Dir)
 	o, err := cmd.CombinedOutput()

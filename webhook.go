@@ -2,6 +2,7 @@ package plumber
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
@@ -129,7 +130,7 @@ func (h *Webhook) SetCertificates(certs string) error {
 	return nil
 }
 
-func (h *Webhook) webhookRequest(payload any) (*http.Request, error) {
+func (h *Webhook) webhookRequest(ctx context.Context, payload any) (*http.Request, error) {
 	switch pt := payload.(type) {
 	case WebhookMessage:
 		pt.Time = time.Now()
@@ -141,7 +142,7 @@ func (h *Webhook) webhookRequest(payload any) (*http.Request, error) {
 	}
 	slog.Debug("webhook request", "url", h.URL, "payload", jsonPayload)
 	bodyReader := bytes.NewReader(jsonPayload)
-	r, err := http.NewRequest(h.Method, h.URL, bodyReader)
+	r, err := http.NewRequestWithContext(ctx, h.Method, h.URL, bodyReader)
 	if err != nil {
 		return r, err
 	}
@@ -151,8 +152,8 @@ func (h *Webhook) webhookRequest(payload any) (*http.Request, error) {
 	return r, nil
 }
 
-func (h *Webhook) Send(payload any) error {
-	r, err := h.webhookRequest(payload)
+func (h *Webhook) Send(ctx context.Context, payload any) error {
+	r, err := h.webhookRequest(ctx, payload)
 	if err != nil {
 		return fmt.Errorf("failed to create webhook request: %w", err)
 	}
