@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/md5"
 	"errors"
 	"fmt"
@@ -17,7 +18,7 @@ import (
 )
 
 type Runner interface {
-	Run(profile string, extraArgs []string) error
+	Run(ctx context.Context, profile string, extraArgs []string) error
 	Cleanup() error
 }
 
@@ -306,7 +307,7 @@ func NewRunCmd(v *viper.Viper) *cobra.Command {
 				slog.Error("failed to write analysis file", "error", err)
 			}
 
-			if err := runner.Run(profile, engineArgs); err != nil {
+			if err := runner.Run(ctx, profile, engineArgs); err != nil {
 				analysis.SetState(plumber.StateFailed)
 				if err := analysis.Write(); err != nil {
 					slog.Error("failed to write analysis file", "error", err)
