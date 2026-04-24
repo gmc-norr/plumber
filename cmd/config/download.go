@@ -18,6 +18,7 @@ func NewDownloadCmd(v *viper.Viper) *cobra.Command {
 			return cobra.ExactArgs(2)(cmd, args)
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
 			configRepo, _ := cmd.Flags().GetString("config-repo")
 			configVersion, _ := cmd.Flags().GetString("config-version")
 			configDir := v.GetString("config-home")
@@ -46,7 +47,7 @@ func NewDownloadCmd(v *viper.Viper) *cobra.Command {
 			if pf.Exists() && !forceDownload {
 				return fmt.Errorf("config already exists: %s", pf.Path)
 			}
-			if err := plumber.DownloadConfig(repo, configVersion, &pf, v.GetString("cache-home")); err != nil {
+			if err := plumber.DownloadConfig(ctx, repo, configVersion, &pf, v.GetString("cache-home")); err != nil {
 				return fmt.Errorf("error downloading config: %w", err)
 			}
 			slog.Info("pipeline config downloaded", "engine", pf.Pipelines[0].Engine, "name", pf.Pipelines[0].Pipeline, "path", pf.Path)

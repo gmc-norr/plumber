@@ -201,7 +201,7 @@ func NewRunCmd(v *viper.Viper) *cobra.Command {
 					}
 					return fmt.Errorf("error initialising git repo: %w", err)
 				}
-				err = plumber.DownloadConfig(repo, configVersion, &pf, v.GetString("cache-home"))
+				err = plumber.DownloadConfig(ctx, repo, configVersion, &pf, v.GetString("cache-home"))
 				if err != nil {
 					analysis.SetState(plumber.StateFailed)
 					if err := analysis.Write(); err != nil {

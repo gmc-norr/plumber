@@ -1,6 +1,7 @@
 package plumber
 
 import (
+	"context"
 	"crypto/md5"
 	"embed"
 	"errors"
@@ -363,18 +364,18 @@ func ValidatePlumberFile(data []byte) error {
 // GitRepo.Path accordingly. It returns a PlumberFile, and if the repo
 // cannot be cloned, checked out, or the plumber file cannot be read, an
 // error is also returned, otherwise nil.
-func DownloadConfigRepo(repo *GitRepo, repoVersion string, dir string) (PlumberFile, error) {
+func DownloadConfigRepo(ctx context.Context, repo *GitRepo, repoVersion string, dir string) (PlumberFile, error) {
 	var pf PlumberFile
 	dest := filepath.Join(dir, repo.Url.Path)
 	repo.LocalPath = dest
 
 	slog.Debug("downloading config repo", "url", repo.Url, "local_path", dest)
 
-	if err := repo.Sync(); err != nil {
+	if err := repo.Sync(ctx); err != nil {
 		return pf, err
 	}
 
-	if err := repo.Checkout(repoVersion); err != nil {
+	if err := repo.Checkout(ctx, repoVersion); err != nil {
 		return pf, err
 	}
 
@@ -397,8 +398,8 @@ func (pf PlumberFile) Checksum() (FileChecksums, error) {
 	return checksums, err
 }
 
-func DownloadConfig(repo GitRepo, repoVersion string, plumberFile *PlumberFile, dir string) (err error) {
-	pf, err := DownloadConfigRepo(&repo, repoVersion, dir)
+func DownloadConfig(ctx context.Context, repo GitRepo, repoVersion string, plumberFile *PlumberFile, dir string) (err error) {
+	pf, err := DownloadConfigRepo(ctx, &repo, repoVersion, dir)
 	if err != nil {
 		return err
 	}
