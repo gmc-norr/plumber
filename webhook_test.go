@@ -1,6 +1,7 @@
 package plumber
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -84,7 +85,7 @@ func TestSt2Webhook(t *testing.T) {
 			t.Logf("sending webook request to test server at %s", server.URL)
 			h := NewSt2Webhook(server.URL, c.apiKey)
 			h.PlumberVersion = c.version
-			err := h.Send(c.message)
+			err := h.Send(context.Background(), c.message)
 			t.Logf("send error: %v", err)
 			if (err != nil) != c.shouldErr {
 				if c.shouldErr {
@@ -111,7 +112,7 @@ func TestFailedConnection(t *testing.T) {
 			server := testServer("supersecret", &c, t)
 			defer server.Close()
 			h := NewSt2Webhook("http://thisisnotright.localhost", c.apiKey)
-			err := h.Send(c.message)
+			err := h.Send(context.Background(), c.message)
 			t.Logf("send error: %v", err)
 			if err == nil {
 				t.Error("expected an error, got nil")
