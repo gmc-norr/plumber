@@ -1,6 +1,6 @@
 module github.com/gmc-norr/plumber
 
-go 1.25.8
+go 1.26.1
 
 require (
 	github.com/google/uuid v1.4.0
