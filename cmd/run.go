@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,6 +14,7 @@ import (
 	"github.com/gmc-norr/plumber"
 	"github.com/gmc-norr/plumber/pyenv"
 	"github.com/google/uuid"
+	"github.com/maehler/webhook"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -22,7 +24,22 @@ type Runner interface {
 	Cleanup() error
 }
 
+func sendMessage(ctx context.Context, client *webhook.Client, payload plumber.WebhookMessage) error {
+	if client == nil {
+		return nil
+	}
+
+	res, err := client.SendContext(ctx, payload)
+	if err == nil {
+		slog.Info("sent webhook message", "message type", payload.MessageType, "attempts", res.Attempts, "status", res.Response.Status)
+	} else {
+		slog.Error("failed to send webhook message", "message_type", payload.MessageType, "attempts", res.Attempts, "error", err)
+	}
+	return err
+}
+
 func NewRunCmd(v *viper.Viper) *cobra.Command {
+	var webhookClient *webhook.Client
 	var engineArgs []string
 	cmd := &cobra.Command{
 		Use:   "run PIPELINE [flags]",
@@ -45,6 +62,26 @@ func NewRunCmd(v *viper.Viper) *cobra.Command {
 			if !plumber.ValidPipelineName(args[0]) {
 				return fmt.Errorf("pipeline name should be on the form <org>/<repo>, spaces not allowed")
 			}
+			return nil
+		},
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			slog.Debug("setting up webhook client")
+			webhookURL := v.GetString("webhook-url")
+			webhookApiKey := v.GetString("webhook-api-key")
+			if webhookURL == "" {
+				slog.Debug("no webhook url supplied, will not send any messages")
+				return nil
+			}
+			var headers http.Header
+			keyParts := strings.Split(webhookApiKey, "=")
+			if webhookApiKey != "" && len(keyParts) != 2 {
+				return fmt.Errorf("invalid api key format")
+			}
+			if webhookApiKey != "" {
+				headers.Add(keyParts[0], keyParts[1])
+			}
+			webhookClient = webhook.NewClient(webhookURL, webhook.ClientOpts.WithHeaders(headers))
+			slog.Debug("webhook", "url", webhookClient.URL, "method", webhookClient.Method)
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -96,25 +133,12 @@ func NewRunCmd(v *viper.Viper) *cobra.Command {
 				return fmt.Errorf("failed to write analysis file: %w", err)
 			}
 
-			webhookUrl := v.GetString("webhook-url")
-			var webhookErr error
-			var webhook *plumber.Webhook
-			slog.Info("webhook config", "url", webhookUrl, "certs", v.GetString("certs"))
-			if webhookUrl == "" {
-				slog.Info("no webhook url defined, won't send any information")
-			} else {
-				webhook = plumber.NewSt2Webhook(webhookUrl, v.GetString("webhook-api-key"))
-				webhook.PlumberVersion = v.GetString("plumber-version")
-				if v.GetBool("webhook-no-verify") {
-					slog.Warn("disabling webhook TLS")
-					webhook.DisableTLSVerification()
-				} else if v.GetString("certs") != "" {
-					slog.Debug("setting certificates for webhook client", "path", v.GetString("certs"))
-					webhookErr = webhook.SetCertificates(v.GetString("certs"))
-				}
+			webhookMessage := plumber.WebhookMessage{
+				AnalysisId:      analysis.Id,
+				Pipeline:        analysis.Pipeline.Repo,
+				PipelineVersion: analysis.Pipeline.Revision,
+				Workdir:         analysis.Workdir,
 			}
-
-			slog.Debug("webhook", "client", webhook)
 
 			defer func() {
 				if ctx.Err() != nil {
@@ -124,41 +148,20 @@ func NewRunCmd(v *viper.Viper) *cobra.Command {
 						slog.Error("failed to write analysis file", "error", err)
 					}
 				}
-				if webhook != nil && ctx.Err() != nil {
-					msg := plumber.WebhookMessage{
-						AnalysisId:      analysis.Id,
-						Pipeline:        analysis.Pipeline.Repo,
-						PipelineVersion: analysis.Pipeline.Revision,
-						Workdir:         analysis.Workdir,
-						Message:         "execution failed",
-						MessageType:     plumber.MessageEnd,
-						Success:         false,
-						Error:           plumber.NewMarshableError(ctx.Err()),
-					}
-					if err := webhook.Send(ctx, msg); err != nil {
-						slog.Error("failed to send init message to webhook", "error", err)
-					}
-				}
+				webhookMessage.Message = "execution failed"
+				webhookMessage.MessageType = plumber.MessageEnd
+				webhookMessage.Success = false
+				webhookMessage.Error = plumber.NewMarshableError(ctx.Err())
+				_ = sendMessage(ctx, webhookClient, webhookMessage)
 			}()
 
-			if webhook != nil {
-				msg := plumber.WebhookMessage{
-					AnalysisId:      analysis.Id,
-					Pipeline:        analysis.Pipeline.Repo,
-					PipelineVersion: analysis.Pipeline.Revision,
-					Workdir:         analysis.Workdir,
-					Message:         "initialising plumber",
-					MessageType:     plumber.MessageInit,
-					Success:         webhookErr == nil,
-					Error:           plumber.NewMarshableError(webhookErr),
-				}
-				if err := webhook.Send(ctx, msg); err != nil {
-					return fmt.Errorf("failed to send init message to webhook: %w", err)
-				}
-			}
-
-			if webhookErr != nil {
-				return fmt.Errorf("failed to initialise webhook: %w", webhookErr)
+			webhookMessage.Message = "initialising plumber"
+			webhookMessage.MessageType = plumber.MessageInit
+			webhookMessage.Success = true
+			webhookMessage.Error = plumber.NewMarshableError(nil)
+			if err := sendMessage(ctx, webhookClient, webhookMessage); err != nil {
+				// Fail if the first message fails. This is likely indicative of a misconfiguration.
+				return fmt.Errorf("failed to send webhook message: %w", err)
 			}
 
 			h := md5.Sum([]byte(fmt.Sprintf("%s-%s-%s-%s", configRepo, configVersion, pipeline.Repo, pipeline.Revision)))
@@ -287,20 +290,11 @@ func NewRunCmd(v *viper.Viper) *cobra.Command {
 				return fmt.Errorf("unsupported workflow engine: %s", pf.Pipelines[0].Engine)
 			}
 
-			if webhook != nil {
-				msg := plumber.WebhookMessage{
-					AnalysisId:      analysis.Id,
-					Pipeline:        analysis.Pipeline.Repo,
-					PipelineVersion: analysis.Pipeline.Revision,
-					Workdir:         analysis.Workdir,
-					Message:         "pipeline started",
-					MessageType:     plumber.MessageStart,
-					Success:         true,
-				}
-				if err := webhook.Send(ctx, msg); err != nil {
-					slog.Error("failed to send message to webhook", "error", err)
-				}
-			}
+			webhookMessage.Message = "pipeline started"
+			webhookMessage.MessageType = plumber.MessageStart
+			webhookMessage.Success = true
+			webhookMessage.Error = plumber.NewMarshableError(nil)
+			_ = sendMessage(ctx, webhookClient, webhookMessage)
 
 			analysis.SetState(plumber.StateRunning)
 			if err := analysis.Write(); err != nil {
@@ -317,21 +311,11 @@ func NewRunCmd(v *viper.Viper) *cobra.Command {
 				if errors.As(err, &runErr) {
 					loglines = runErr.Log
 				}
-				if webhook != nil {
-					msg := plumber.WebhookMessage{
-						AnalysisId:      analysis.Id,
-						Pipeline:        analysis.Pipeline.Repo,
-						PipelineVersion: analysis.Pipeline.Revision,
-						Workdir:         analysis.Workdir,
-						Message:         fmt.Sprintf("pipeline failed, end of log:\n%s", strings.Join(loglines, "\n")),
-						MessageType:     plumber.MessageEnd,
-						Success:         false,
-						Error:           plumber.NewMarshableError(err),
-					}
-					if err := webhook.Send(ctx, msg); err != nil {
-						slog.Error("failed to send message to webhook", "error", err)
-					}
-				}
+				webhookMessage.Message = fmt.Sprintf("pipeline failed, end of log:\n%s", strings.Join(loglines, "\n"))
+				webhookMessage.MessageType = plumber.MessageEnd
+				webhookMessage.Success = false
+				webhookMessage.Error = plumber.NewMarshableError(err)
+				_ = sendMessage(ctx, webhookClient, webhookMessage)
 				return fmt.Errorf("error running pipeline: %w", err)
 			}
 
@@ -340,20 +324,11 @@ func NewRunCmd(v *viper.Viper) *cobra.Command {
 				if err := analysis.Write(); err != nil {
 					slog.Error("failed to write analysis file", "error", err)
 				}
-				if webhook != nil {
-					msg := plumber.WebhookMessage{
-						AnalysisId:      analysis.Id,
-						Pipeline:        analysis.Pipeline.Repo,
-						PipelineVersion: analysis.Pipeline.Revision,
-						Workdir:         analysis.Workdir,
-						Message:         "cleaning up intermediate files",
-						MessageType:     plumber.MessageProgress,
-						Success:         true,
-					}
-					if err := webhook.Send(ctx, msg); err != nil {
-						slog.Error("failed to send message to webhook", "error", err)
-					}
-				}
+				webhookMessage.Message = "cleaning up intermediate files"
+				webhookMessage.MessageType = plumber.MessageProgress
+				webhookMessage.Success = true
+				webhookMessage.Error = plumber.NewMarshableError(nil)
+				_ = sendMessage(ctx, webhookClient, webhookMessage)
 				if err := runner.Cleanup(); err != nil {
 					return fmt.Errorf("failed to clean up pipeline files: %w", err)
 				}
@@ -363,20 +338,11 @@ func NewRunCmd(v *viper.Viper) *cobra.Command {
 			if err := analysis.Write(); err != nil {
 				slog.Error("failed to write analysis file", "error", err)
 			}
-			if webhook != nil {
-				msg := plumber.WebhookMessage{
-					AnalysisId:      analysis.Id,
-					Pipeline:        analysis.Pipeline.Repo,
-					PipelineVersion: analysis.Pipeline.Revision,
-					Workdir:         analysis.Workdir,
-					Message:         "pipeline finished",
-					MessageType:     plumber.MessageEnd,
-					Success:         true,
-				}
-				if err := webhook.Send(ctx, msg); err != nil {
-					slog.Error("failed to send message to webhook", "error", err)
-				}
-			}
+			webhookMessage.Message = "pipeline finished"
+			webhookMessage.MessageType = plumber.MessageEnd
+			webhookMessage.Success = true
+			webhookMessage.Error = plumber.NewMarshableError(nil)
+			_ = sendMessage(ctx, webhookClient, webhookMessage)
 
 			return nil
 		},
