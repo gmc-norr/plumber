@@ -147,12 +147,12 @@ func NewRunCmd(v *viper.Viper) *cobra.Command {
 					if err := analysis.Write(); err != nil {
 						slog.Error("failed to write analysis file", "error", err)
 					}
+					webhookMessage.Message = "execution failed"
+					webhookMessage.MessageType = plumber.MessageEnd
+					webhookMessage.Success = false
+					webhookMessage.Error = plumber.NewMarshableError(ctx.Err())
+					_ = sendMessage(ctx, webhookClient, webhookMessage)
 				}
-				webhookMessage.Message = "execution failed"
-				webhookMessage.MessageType = plumber.MessageEnd
-				webhookMessage.Success = false
-				webhookMessage.Error = plumber.NewMarshableError(ctx.Err())
-				_ = sendMessage(ctx, webhookClient, webhookMessage)
 			}()
 
 			webhookMessage.Message = "initialising plumber"
