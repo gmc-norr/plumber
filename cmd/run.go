@@ -72,7 +72,7 @@ func NewRunCmd(v *viper.Viper) *cobra.Command {
 				slog.Debug("no webhook url supplied, will not send any messages")
 				return nil
 			}
-			var headers http.Header
+			headers := make(http.Header)
 			keyParts := strings.Split(webhookApiKey, "=")
 			if webhookApiKey != "" && len(keyParts) != 2 {
 				return fmt.Errorf("invalid api key format")
