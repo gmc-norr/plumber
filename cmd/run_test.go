@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/gmc-norr/plumber"
+	// "github.com/maehler/webhook"
 	"github.com/spf13/cobra"
 )
 
@@ -157,5 +159,35 @@ func TestRunSnakemake(t *testing.T) {
 	}
 	if a.Workdir != wd {
 		t.Errorf("expected analysis workdir %s, got %s", wd, a.Workdir)
+	}
+}
+
+func TestRunWebhooks(t *testing.T) {
+	v := newTestViper(t)
+	v.Set("webhook-url", "https://example.com")
+	v.Set("webhook-api-key", "api-key=thisissecret")
+
+	cmd := NewRootCmd(v)
+
+	_, _, se, err := runInTempdir(t, cmd, []string{"run", "nf-core/raredisease", "--version", "2.4.0"})
+	strings.Contains(se, "msg=webhook url=https://example.com")
+
+	if err == nil {
+		t.Error("expected command to fail")
+	}
+}
+
+func TestRunWebhooksInvalidApiKeyFormat(t *testing.T) {
+	v := newTestViper(t)
+	v.Set("webhook-url", "https://example.com")
+	v.Set("webhook-api-key", "thisissecret")
+
+	cmd := NewRootCmd(v)
+
+	_, _, se, err := runInTempdir(t, cmd, []string{"run", "nf-core/raredisease", "--version", "2.4.0"})
+	strings.Contains(se, "invalid api key format")
+
+	if err == nil {
+		t.Error("expected command to fail")
 	}
 }
