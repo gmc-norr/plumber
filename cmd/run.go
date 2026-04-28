@@ -31,7 +31,7 @@ func sendMessage(ctx context.Context, client *webhook.Client, payload plumber.We
 
 	res, err := client.SendContext(ctx, payload)
 	if err == nil {
-		slog.Info("sent webhook message", "message type", payload.MessageType, "attempts", res.Attempts, "status", res.Response.Status)
+		slog.Info("sent webhook message", "message_type", payload.MessageType, "attempts", res.Attempts, "status", res.Response.Status)
 	} else {
 		slog.Error("failed to send webhook message", "message_type", payload.MessageType, "attempts", res.Attempts, "error", err)
 	}
