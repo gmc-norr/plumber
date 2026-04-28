@@ -117,7 +117,7 @@ func NewRootCmd(v *viper.Viper) *cobra.Command {
 	cmd.PersistentFlags().String("certs", "", "Path to CA certificates to use for webhook TLS")
 	cmd.PersistentFlags().String("webhook-url", "", "Webhook URL where to send status updates")
 	cmd.PersistentFlags().String("webhook-api-key", "", "API key for the webhook")
-	cmd.PersistentFlags().Bool("webhook-no-verify", false, "Don't verify TLS certificates for webhooks (INSECURE)")
+	cmd.PersistentFlags().Bool("webhook-no-verify", false, "Don't verify TLS certificates for webhooks (insecure; not implemented)")
 	cmd.PersistentFlags().StringP("log-level", "l", "WARN", "log level")
 
 	_ = v.BindPFlags(cmd.PersistentFlags())
