@@ -91,14 +91,10 @@ func NewRunCmd(v *viper.Viper) *cobra.Command {
 			configRepo, _ := cmd.Flags().GetString("config-repo")
 			configVersion := v.GetString("config-version")
 			configDir := v.GetString("config-home")
-			pipeline, err := plumber.ParsePipelineName(args[0])
+			pipeline, _ := plumber.ParsePipelineName(args[0])
 			pipeline.Revision, _ = cmd.Flags().GetString("version")
 			stringId, _ := cmd.Flags().GetString("analysis-id")
 			noCleanup, _ := cmd.Flags().GetBool("no-cleanup")
-
-			if err != nil {
-				return fmt.Errorf("error parsing pipeline name: %w", err)
-			}
 
 			workdir, err = filepath.Abs(workdir)
 			if err != nil {
