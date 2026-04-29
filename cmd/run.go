@@ -223,7 +223,7 @@ func NewRunCmd(v *viper.Viper) *cobra.Command {
 					if err := analysis.Write(); err != nil {
 						slog.Error("failed to write analysis file", "error", err)
 					}
-					slog.Error("error downloading config repo", "repo", pf.Source, "path", pf.Path, "error", err)
+					slog.Error("error downloading config repo", "repo", repo.Url, "path", pf.Path, "error", err)
 					return fmt.Errorf("error downloading config: %w", err)
 				}
 			} else {
