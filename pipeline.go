@@ -432,7 +432,7 @@ func (p *NextflowPipeline) Run(ctx context.Context, profile string, extraArgs []
 			logTail.mu.Lock()
 			logTail.Add(t)
 			logTail.mu.Unlock()
-			fmt.Println(t)
+			slog.Info("nextflow output", "stdout", t)
 		}
 	}()
 
@@ -446,7 +446,7 @@ func (p *NextflowPipeline) Run(ctx context.Context, profile string, extraArgs []
 			logTail.mu.Lock()
 			logTail.Add(t)
 			logTail.mu.Unlock()
-			fmt.Println(t)
+			slog.Info("nextflow output", "stderr", t)
 		}
 	}()
 
