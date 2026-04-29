@@ -126,7 +126,7 @@ func NewRunCmd(v *viper.Viper) *cobra.Command {
 					webhookMessage.MessageType = plumber.MessageEnd
 					webhookMessage.Success = false
 					webhookMessage.Error = plumber.NewMarshableError(errors.Join(ctx.Err(), err))
-					_ = sendMessage(ctx, webhookClient, webhookMessage)
+					_ = sendMessage(context.Background(), webhookClient, webhookMessage)
 				}
 			}()
 
