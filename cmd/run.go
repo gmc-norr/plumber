@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/gmc-norr/plumber"
 	"github.com/gmc-norr/plumber/pyenv"
@@ -147,6 +148,7 @@ func NewRunCmd(v *viper.Viper) *cobra.Command {
 					if err := analysis.Write(); err != nil {
 						slog.Error("failed to write analysis file", "error", err)
 					}
+					webhookMessage.Time = time.Now()
 					webhookMessage.Message = "execution failed"
 					webhookMessage.MessageType = plumber.MessageEnd
 					webhookMessage.Success = false
@@ -155,6 +157,7 @@ func NewRunCmd(v *viper.Viper) *cobra.Command {
 				}
 			}()
 
+			webhookMessage.Time = time.Now()
 			webhookMessage.Message = "initialising plumber"
 			webhookMessage.MessageType = plumber.MessageInit
 			webhookMessage.Success = true
@@ -290,6 +293,7 @@ func NewRunCmd(v *viper.Viper) *cobra.Command {
 				return fmt.Errorf("unsupported workflow engine: %s", pf.Pipelines[0].Engine)
 			}
 
+			webhookMessage.Time = time.Now()
 			webhookMessage.Message = "pipeline started"
 			webhookMessage.MessageType = plumber.MessageStart
 			webhookMessage.Success = true
@@ -311,6 +315,7 @@ func NewRunCmd(v *viper.Viper) *cobra.Command {
 				if errors.As(err, &runErr) {
 					loglines = runErr.Log
 				}
+				webhookMessage.Time = time.Now()
 				webhookMessage.Message = fmt.Sprintf("pipeline failed, end of log:\n%s", strings.Join(loglines, "\n"))
 				webhookMessage.MessageType = plumber.MessageEnd
 				webhookMessage.Success = false
@@ -324,6 +329,7 @@ func NewRunCmd(v *viper.Viper) *cobra.Command {
 				if err := analysis.Write(); err != nil {
 					slog.Error("failed to write analysis file", "error", err)
 				}
+				webhookMessage.Time = time.Now()
 				webhookMessage.Message = "cleaning up intermediate files"
 				webhookMessage.MessageType = plumber.MessageProgress
 				webhookMessage.Success = true
@@ -338,6 +344,7 @@ func NewRunCmd(v *viper.Viper) *cobra.Command {
 			if err := analysis.Write(); err != nil {
 				slog.Error("failed to write analysis file", "error", err)
 			}
+			webhookMessage.Time = time.Now()
 			webhookMessage.Message = "pipeline finished"
 			webhookMessage.MessageType = plumber.MessageEnd
 			webhookMessage.Success = true
