@@ -304,15 +304,58 @@ func (p *SnakemakePipeline) Run(ctx context.Context, profileName string, extraAr
 		cmd.Args[i] = os.ExpandEnv(arg)
 	}
 
-	cmd.Stderr = NewLogWriter(slog.Default().With("executor", "snakemake", "output", "stderr"), slog.LevelInfo)
-	cmd.Stdout = NewLogWriter(slog.Default().With("executor", "snakemake", "output", "stdout"), slog.LevelInfo)
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return err
+	}
+
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		return err
+	}
 
 	slog.Debug("executing pipeline", "cmd", cmd.String(), "env", cmd.Env)
 	if err := cmd.Start(); err != nil {
 		return err
 	}
 
-	return cmd.Wait()
+	logTail := NewLineBuffer(10)
+
+	stdoutScanner := bufio.NewScanner(stdout)
+	go func() {
+		for stdoutScanner.Scan() {
+			t := StripAnsi(strings.TrimSpace(stdoutScanner.Text()))
+			if t == "" {
+				continue
+			}
+			logTail.mu.Lock()
+			logTail.Add(t)
+			logTail.mu.Unlock()
+			slog.Info("snakemake output", "stdout", t)
+		}
+	}()
+
+	stderrScanner := bufio.NewScanner(stderr)
+	go func() {
+		for stderrScanner.Scan() {
+			t := StripAnsi(strings.TrimSpace(stderrScanner.Text()))
+			if t == "" {
+				continue
+			}
+			logTail.mu.Lock()
+			logTail.Add(t)
+			logTail.mu.Unlock()
+			slog.Info("snakemake output", "stderr", t)
+		}
+	}()
+
+	if err := cmd.Wait(); err != nil {
+		return PipelineRunError{
+			Err: err,
+			Log: logTail.Lines,
+		}
+	}
+	return nil
 }
 
 // Cleanup removes intermediate files from previous runs. Currently does nothing for Snakemake pipelines.
