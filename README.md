@@ -60,7 +60,3 @@ Plumber ships with a command for validating the format of a plumber file:
 ```bash
 plumber config validate plumber.yaml
 ```
-
-## Current limitations
-
-- Webhooks have not been implemented for snakemake (hydra) pipelines
