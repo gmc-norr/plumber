@@ -175,6 +175,8 @@ func NewRunCmd(v *viper.Viper) *cobra.Command {
 				return fmt.Errorf("failed to send webhook message: %w", err)
 			}
 
+			slog.Info("setting up configuration", "pipeline", pipeline.Repo, "version", pipeline.Revision)
+
 			h := md5.Sum([]byte(fmt.Sprintf("%s-%s-%s-%s", configRepo, configVersion, pipeline.Repo, pipeline.Revision)))
 			path := filepath.Join(configDir, fmt.Sprintf("%x", h))
 			slog.Info("config files", "repo", configRepo, "local_path", path)
