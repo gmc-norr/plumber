@@ -85,7 +85,7 @@ func NewRunCmd(v *viper.Viper) *cobra.Command {
 			slog.Debug("webhook", "url", webhookClient.URL, "method", webhookClient.Method)
 			return nil
 		},
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			ctx := cmd.Context()
 			workdir, _ := cmd.Flags().GetString("workdir")
 			configRepo, _ := cmd.Flags().GetString("config-repo")
@@ -142,17 +142,21 @@ func NewRunCmd(v *viper.Viper) *cobra.Command {
 			}
 
 			defer func() {
-				if ctx.Err() != nil {
-					slog.Error("context error", "error", ctx.Err())
+				if ctx.Err() != nil || err != nil {
 					analysis.SetState(plumber.StateFailed)
 					if err := analysis.Write(); err != nil {
 						slog.Error("failed to write analysis file", "error", err)
 					}
+
+					webhookMessage.Message = fmt.Sprintf("execution failed: %s", err)
+					if runErr, ok := errors.AsType[plumber.PipelineRunError](err); ok {
+						webhookMessage.Message = fmt.Sprintf("%s, end of log: \n%s", webhookMessage.Message, strings.Join(runErr.Log, "\n"))
+					}
+
 					webhookMessage.Time = time.Now()
-					webhookMessage.Message = "execution failed"
 					webhookMessage.MessageType = plumber.MessageEnd
 					webhookMessage.Success = false
-					webhookMessage.Error = plumber.NewMarshableError(ctx.Err())
+					webhookMessage.Error = plumber.NewMarshableError(errors.Join(ctx.Err(), err))
 					_ = sendMessage(ctx, webhookClient, webhookMessage)
 				}
 			}()
@@ -310,17 +314,6 @@ func NewRunCmd(v *viper.Viper) *cobra.Command {
 				if err := analysis.Write(); err != nil {
 					slog.Error("failed to write analysis file", "error", err)
 				}
-				var loglines []string
-				var runErr plumber.PipelineRunError
-				if errors.As(err, &runErr) {
-					loglines = runErr.Log
-				}
-				webhookMessage.Time = time.Now()
-				webhookMessage.Message = fmt.Sprintf("pipeline failed, end of log:\n%s", strings.Join(loglines, "\n"))
-				webhookMessage.MessageType = plumber.MessageEnd
-				webhookMessage.Success = false
-				webhookMessage.Error = plumber.NewMarshableError(err)
-				_ = sendMessage(ctx, webhookClient, webhookMessage)
 				return fmt.Errorf("error running pipeline: %w", err)
 			}
 
