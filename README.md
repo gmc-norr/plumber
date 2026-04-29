@@ -60,3 +60,31 @@ Plumber ships with a command for validating the format of a plumber file:
 ```bash
 plumber config validate plumber.yaml
 ```
+
+## Webhook test server
+
+Plumber comes with a simple server for testing the webhook functionality. Easiest is to run this with
+
+```bash
+go run ./cmd/webhookserver
+```
+
+This will listen for POST requests on port localhost:3000 by default, so it can be spun up in one terminal session, and in another you can do
+
+```bash
+plumber run <pipeline> [options] --webhook-url http://localhost:3000
+```
+
+The server expects a JSON body in the request, and will just print the payload for each request.
+Auth can also be enabled by setting `--api-key` and `--api-key-header` for the test server.
+Plumber must then be run with `--webhook-api-key` in order for the requests to be successful.
+
+For example:
+
+```bash
+# session 1
+go run ./cmd/webhookserver --api-key secret --api-key-header api-key
+
+# session 2
+plumber run <pipeline> [options] --webhook-url http://localhost:3000 --webhook-api-key "api-key=secret"
+```
