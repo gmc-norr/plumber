@@ -69,7 +69,7 @@ Plumber comes with a simple server for testing the webhook functionality. Easies
 go run ./cmd/webhookserver
 ```
 
-This will listen for POST requests on port localhost:3000 by default, so it can be spun up in one terminal session, and in another you can do
+This will listen for POST requests on localhost:3000 by default, so it can be spun up in one terminal session, and in another session you can do
 
 ```bash
 plumber run <pipeline> [options] --webhook-url http://localhost:3000
