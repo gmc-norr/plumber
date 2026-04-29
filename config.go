@@ -417,17 +417,20 @@ func DownloadConfig(ctx context.Context, repo GitRepo, repoVersion string, plumb
 	}
 
 	if pipelineData == nil {
-		msg := "pipeline not found in repo"
+		var msg string
 		if len(nameIdx) > 0 {
+			msg = "pipeline found in repo, but version does not match available version"
 			var otherVersions []string
 			for _, i := range nameIdx {
 				otherVersions = append(otherVersions, pf.Pipelines[i].Version)
 			}
 			if len(otherVersions) == 1 {
-				msg += fmt.Sprintf(", but other version was found: %s", otherVersions[0])
+				msg += fmt.Sprintf(": %s", otherVersions[0])
 			} else {
-				msg += fmt.Sprintf(", but other versions were found: %s", strings.Join(otherVersions, ", "))
+				msg += fmt.Sprintf("s: %s", strings.Join(otherVersions, ", "))
 			}
+		} else {
+			msg = "pipeline not found in repo"
 		}
 		return fmt.Errorf("%s", msg)
 	}
