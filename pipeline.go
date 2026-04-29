@@ -441,6 +441,15 @@ func (p *NextflowPipeline) Run(ctx context.Context, profile string, extraArgs []
 	cmd.Cancel = func() error {
 		return cmd.Process.Signal(syscall.SIGTERM)
 	}
+	// The process environments can be poisoned by TMP and TMPDIR on the system, even
+	// if apptainer is run with --cleanenv. This can result in files being written in
+	// locations that aren't mounted for the container. Unsetting these will let
+	// nextflow handle this for us, and this has never not worked in my experience.
+	for _, v := range []string{"TMP", "TMPDIR"} {
+		if err := os.Unsetenv(v); err != nil {
+			slog.Warn("unable to unset environment variable for nextflow", "name", v, "error", err)
+		}
+	}
 	cmd.Env = os.Environ()
 	for key, value := range p.Env {
 		slog.Debug("setting command environment", "key", key, "value", value)
