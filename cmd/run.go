@@ -135,6 +135,7 @@ func NewRunCmd(v *viper.Viper) *cobra.Command {
 				return fmt.Errorf("failed to resolve workdir: %w", err)
 			}
 			analysis = analysis.WithWorkdir(workdir)
+			webhookMessage.Workdir = analysis.Workdir
 
 			var analysisId uuid.UUID
 			if stringId == "" {
@@ -145,8 +146,8 @@ func NewRunCmd(v *viper.Viper) *cobra.Command {
 					return fmt.Errorf("failed to parse analysis id: %w", err)
 				}
 			}
-
 			analysis = analysis.WithId(analysisId)
+			webhookMessage.AnalysisId = analysis.Id
 
 			if a, err := analysis.Read(); err != nil {
 				if !errors.Is(err, os.ErrNotExist) {
