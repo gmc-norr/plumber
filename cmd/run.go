@@ -96,42 +96,12 @@ func NewRunCmd(v *viper.Viper) *cobra.Command {
 			stringId, _ := cmd.Flags().GetString("analysis-id")
 			noCleanup, _ := cmd.Flags().GetBool("no-cleanup")
 
-			workdir, err = filepath.Abs(workdir)
-			if err != nil {
-				return fmt.Errorf("failed to resolve workdir: %w", err)
-			}
-
-			var analysisId uuid.UUID
-			if stringId == "" {
-				analysisId = uuid.New()
-			} else {
-				analysisId, err = uuid.Parse(stringId)
-				if err != nil {
-					return fmt.Errorf("failed to parse analysis id: %w", err)
-				}
-			}
-
 			analysis := plumber.NewAnalysis().
-				WithId(analysisId).
 				WithUser(os.Getenv("USER")).
 				WithPipeline(pipeline).
-				WithState(plumber.StatePending).
-				WithWorkdir(workdir)
-
-			if a, err := analysis.Read(); err != nil {
-				if !errors.Is(err, os.ErrNotExist) {
-					return fmt.Errorf("failed to read analysis file: %w", err)
-				}
-			} else if a.Id != analysis.Id {
-				return fmt.Errorf("existing analysis id does not match current analysis id")
-			}
-
-			if err := analysis.Write(); err != nil {
-				return fmt.Errorf("failed to write analysis file: %w", err)
-			}
+				WithState(plumber.StatePending)
 
 			webhookMessage := plumber.WebhookMessage{
-				AnalysisId:      analysis.Id,
 				Pipeline:        analysis.Pipeline.Repo,
 				PipelineVersion: analysis.Pipeline.Revision,
 				Workdir:         analysis.Workdir,
@@ -149,6 +119,8 @@ func NewRunCmd(v *viper.Viper) *cobra.Command {
 						webhookMessage.Message = fmt.Sprintf("%s, end of log: \n%s", webhookMessage.Message, strings.Join(runErr.Log, "\n"))
 					}
 
+					webhookMessage.Workdir = analysis.Workdir
+					webhookMessage.AnalysisId = analysis.Id
 					webhookMessage.Time = time.Now()
 					webhookMessage.MessageType = plumber.MessageEnd
 					webhookMessage.Success = false
@@ -156,6 +128,36 @@ func NewRunCmd(v *viper.Viper) *cobra.Command {
 					_ = sendMessage(ctx, webhookClient, webhookMessage)
 				}
 			}()
+
+			workdir, err = filepath.Abs(workdir)
+			if err != nil {
+				return fmt.Errorf("failed to resolve workdir: %w", err)
+			}
+			analysis = analysis.WithWorkdir(workdir)
+
+			var analysisId uuid.UUID
+			if stringId == "" {
+				analysisId = uuid.New()
+			} else {
+				analysisId, err = uuid.Parse(stringId)
+				if err != nil {
+					return fmt.Errorf("failed to parse analysis id: %w", err)
+				}
+			}
+
+			analysis = analysis.WithId(analysisId)
+
+			if a, err := analysis.Read(); err != nil {
+				if !errors.Is(err, os.ErrNotExist) {
+					return fmt.Errorf("failed to read analysis file: %w", err)
+				}
+			} else if a.Id != analysis.Id {
+				return fmt.Errorf("existing analysis id does not match current analysis id")
+			}
+
+			if err := analysis.Write(); err != nil {
+				return fmt.Errorf("failed to write analysis file: %w", err)
+			}
 
 			webhookMessage.Time = time.Now()
 			webhookMessage.Message = "initialising plumber"
