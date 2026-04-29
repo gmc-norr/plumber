@@ -72,6 +72,9 @@ func (r GitRepo) Clone(ctx context.Context) error {
 	return nil
 }
 
+// Checkout checks out a commit-ish of the git repository. This is then
+// followed by `git merge --ff-only` where any errors are ignored to make
+// sure that when a branch is checked out, it is properly updated with origin.
 func (r GitRepo) Checkout(ctx context.Context, version string) error {
 	cmd := exec.CommandContext(ctx, "git", "checkout", version, "--")
 	cmd.Dir = r.LocalPath
@@ -80,6 +83,9 @@ func (r GitRepo) Checkout(ctx context.Context, version string) error {
 	if err != nil {
 		return fmt.Errorf("%w: %s", err, o)
 	}
+	cmd = exec.CommandContext(ctx, "git", "merge", "--ff-only")
+	cmd.Dir = r.LocalPath
+	_ = cmd.Run()
 	return nil
 }
 
