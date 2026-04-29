@@ -70,7 +70,7 @@ func NewRunCmd(v *viper.Viper) *cobra.Command {
 			webhookURL := v.GetString("webhook-url")
 			webhookApiKey := v.GetString("webhook-api-key")
 			if webhookURL == "" {
-				slog.Debug("no webhook url supplied, will not send any messages")
+				slog.Info("no webhook url supplied, will not send any messages")
 				return nil
 			}
 			headers := make(http.Header)
@@ -108,6 +108,8 @@ func NewRunCmd(v *viper.Viper) *cobra.Command {
 				Workdir:         analysis.Workdir,
 			}
 
+			slog.Info("executing as", "user", analysis.User)
+
 			defer func() {
 				if ctx.Err() != nil || err != nil {
 					analysis.SetState(plumber.StateFailed)
@@ -136,6 +138,8 @@ func NewRunCmd(v *viper.Viper) *cobra.Command {
 			}
 			analysis = analysis.WithWorkdir(workdir)
 			webhookMessage.Workdir = analysis.Workdir
+
+			slog.Info("running in", "workdir", analysis.Workdir)
 
 			var analysisId uuid.UUID
 			if stringId == "" {
@@ -171,8 +175,11 @@ func NewRunCmd(v *viper.Viper) *cobra.Command {
 				return fmt.Errorf("failed to send webhook message: %w", err)
 			}
 
+			slog.Info("setting up configuration", "pipeline", pipeline.Repo, "version", pipeline.Revision)
+
 			h := md5.Sum([]byte(fmt.Sprintf("%s-%s-%s-%s", configRepo, configVersion, pipeline.Repo, pipeline.Revision)))
 			path := filepath.Join(configDir, fmt.Sprintf("%x", h))
+			slog.Info("config files", "repo", configRepo, "local_path", path)
 			slog.Debug("attempting to read config", "path", path)
 			pf, err := plumber.ReadPlumberFile(filepath.Join(path, plumber.PlumberFileName))
 			if err != nil {
@@ -218,7 +225,7 @@ func NewRunCmd(v *viper.Viper) *cobra.Command {
 					if err := analysis.Write(); err != nil {
 						slog.Error("failed to write analysis file", "error", err)
 					}
-					slog.Error("error downloading config repo", "repo", pf.Source, "path", pf.Path, "error", err)
+					slog.Error("error downloading config repo", "repo", repo.Url, "path", pf.Path, "error", err)
 					return fmt.Errorf("error downloading config: %w", err)
 				}
 			} else {
