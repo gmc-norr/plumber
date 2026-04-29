@@ -102,6 +102,7 @@ func NewRunCmd(v *viper.Viper) *cobra.Command {
 				WithState(plumber.StatePending)
 
 			webhookMessage := plumber.WebhookMessage{
+				AnalysisId:      analysis.Id,
 				Pipeline:        analysis.Pipeline.Repo,
 				PipelineVersion: analysis.Pipeline.Revision,
 				Workdir:         analysis.Workdir,
