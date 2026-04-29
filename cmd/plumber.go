@@ -37,7 +37,7 @@ func initConfig(v *viper.Viper) error {
 
 	v.SetDefault("config-home", filepath.Join(configHome, "plumber"))
 	v.SetDefault("cache-home", filepath.Join(cacheHome, "plumber"))
-	v.SetDefault("log-level", "WARN")
+	v.SetDefault("log-level", "INFO")
 	v.Set("plumber-version", version)
 
 	v.MustBindEnv("config-home", "PLUMBER_CONFIG_HOME")
@@ -118,7 +118,7 @@ func NewRootCmd(v *viper.Viper) *cobra.Command {
 	cmd.PersistentFlags().String("webhook-url", "", "Webhook URL where to send status updates")
 	cmd.PersistentFlags().String("webhook-api-key", "", "API key for the webhook")
 	cmd.PersistentFlags().Bool("webhook-no-verify", false, "Don't verify TLS certificates for webhooks (insecure; not implemented)")
-	cmd.PersistentFlags().StringP("log-level", "l", "WARN", "log level")
+	cmd.PersistentFlags().StringP("log-level", "l", "INFO", "log level")
 
 	_ = v.BindPFlags(cmd.PersistentFlags())
 
