@@ -232,6 +232,16 @@ func NewRunCmd(v *viper.Viper) *cobra.Command {
 				slog.Info("using existing config", "path", pf.Path, "version", pf.Pipelines[0].Version)
 			}
 
+			// Check that the config checksums match
+			checksums, err := plumber.ReadChecksums(filepath.Join(pf.Path, plumber.ChecksumFile))
+			if err := checksums.Check(pf.Path); err != nil {
+				errs := err.(interface{ Unwrap() []error }).Unwrap()
+				for _, e := range errs {
+					// TODO: this should eventually be upgraded to a fatal error
+					slog.Warn("error checking config file checksums", "error", e)
+				}
+			}
+
 			var runner Runner
 			var profile string
 			switch pf.Pipelines[0].Engine {
