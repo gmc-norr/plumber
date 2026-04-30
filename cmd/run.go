@@ -232,8 +232,6 @@ func NewRunCmd(v *viper.Viper) *cobra.Command {
 				slog.Info("using existing config", "path", pf.Path, "version", pf.Pipelines[0].Version)
 			}
 
-			slog.Debug("nextflow config", "path", pf.Path, "version", pf.Pipelines[0].Version)
-
 			var runner Runner
 			var profile string
 			switch pf.Pipelines[0].Engine {
