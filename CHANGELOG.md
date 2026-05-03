@@ -1,5 +1,27 @@
 # Changelog
 
+## [1.0.0](https://github.com/gmc-norr/plumber/compare/v0.2.0...v1.0.0) (2026-05-03)
+
+
+### Features
+
+* check config file checksums on pipeline run ([#63](https://github.com/gmc-norr/plumber/issues/63)) ([7ba74da](https://github.com/gmc-norr/plumber/commit/7ba74dade3b93722c5ff776944b6b14644223554))
+* improved logging ([#60](https://github.com/gmc-norr/plumber/issues/60)) ([da219a7](https://github.com/gmc-norr/plumber/commit/da219a794284049f7e1c02efd94b7ad32ff24e00))
+
+
+### Bug Fixes
+
+* avoid environment poisoning of nextflow processes ([#61](https://github.com/gmc-norr/plumber/issues/61)) ([639da49](https://github.com/gmc-norr/plumber/commit/639da49a98f7659b2a0ecafc70065b5924d46b09))
+* correct syncing of branches in config file repo ([#58](https://github.com/gmc-norr/plumber/issues/58)) ([7227af1](https://github.com/gmc-norr/plumber/commit/7227af106db46b9843d006e6798c565c6c08b9c2))
+* get log output from snakemake pipelines in webhook messages ([#59](https://github.com/gmc-norr/plumber/issues/59)) ([e727c7a](https://github.com/gmc-norr/plumber/commit/e727c7a2889833e1d74caec12f2d04808bcf0de4))
+* improved signal handling ([#53](https://github.com/gmc-norr/plumber/issues/53)) ([765e0c5](https://github.com/gmc-norr/plumber/commit/765e0c5d3d24fef57399e5fc639384df7c3c08da))
+* improved webhooks ([#55](https://github.com/gmc-norr/plumber/issues/55)) ([22c25bb](https://github.com/gmc-norr/plumber/commit/22c25bbc8a29a3c6ceb55aa6a0b1d9ff646e25d5))
+
+
+### Miscellaneous Chores
+
+* release 1.0.0 ([#65](https://github.com/gmc-norr/plumber/issues/65)) ([20dfadc](https://github.com/gmc-norr/plumber/commit/20dfadc48b5a8f48831b9914610bf6344bd39b07))
+
 ## [0.2.0](https://github.com/gmc-norr/plumber/compare/v0.1.0...v0.2.0) (2026-04-23)
 
 
