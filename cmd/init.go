@@ -13,7 +13,7 @@ func NewInitCmd(v *viper.Viper) *cobra.Command {
 	return &cobra.Command{
 		Use:        "init",
 		Short:      "Initialise plumber",
-		Deprecated: "initialisation is now done in the background",
+		Deprecated: "initialisation is now done in the background and this command is obsolete, will be removed in the future",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			configHome := v.GetString("config-home")
 			info, err := os.Stat(configHome)
