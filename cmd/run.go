@@ -232,7 +232,18 @@ func NewRunCmd(v *viper.Viper) *cobra.Command {
 				slog.Info("using existing config", "path", pf.Path, "version", pf.Pipelines[0].Version)
 			}
 
-			slog.Debug("nextflow config", "path", pf.Path, "version", pf.Pipelines[0].Version)
+			// Check that the config checksums match
+			checksums, err := plumber.ReadChecksums(filepath.Join(pf.Path, plumber.ChecksumFile))
+			if err != nil {
+				return fmt.Errorf(`failed to read config file checksums, download a fresh config with "plumber config download --force %s %s"`, pf.Pipelines[0].Pipeline.Repo, pf.Pipelines[0].Version)
+			}
+			if err := checksums.Check(pf.Path); err != nil {
+				errs := err.(interface{ Unwrap() []error }).Unwrap()
+				for _, e := range errs {
+					// TODO: this should eventually be upgraded to a fatal error
+					slog.Warn("error checking config file checksums", "error", e)
+				}
+			}
 
 			var runner Runner
 			var profile string
