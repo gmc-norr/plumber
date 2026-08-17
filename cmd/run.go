@@ -93,13 +93,17 @@ func NewRunCmd(v *viper.Viper) *cobra.Command {
 			configDir := v.GetString("config-home")
 			pipeline, _ := plumber.ParsePipelineName(args[0])
 			pipeline.Revision, _ = cmd.Flags().GetString("version")
+			profile, _ := cmd.Flags().GetString("profile")
 			stringId, _ := cmd.Flags().GetString("analysis-id")
 			noCleanup, _ := cmd.Flags().GetBool("no-cleanup")
 
 			analysis := plumber.NewAnalysis().
 				WithUser(os.Getenv("USER")).
 				WithPipeline(pipeline).
-				WithState(plumber.StatePending)
+				WithState(plumber.StatePending).
+				WithConfigVersion(configVersion).
+				WithProfile(profile).
+				WithEngineArguments(engineArgs)
 
 			webhookMessage := plumber.WebhookMessage{
 				AnalysisId:      analysis.Id,
@@ -246,14 +250,12 @@ func NewRunCmd(v *viper.Viper) *cobra.Command {
 			}
 
 			var runner Runner
-			var profile string
 			switch pf.Pipelines[0].Engine {
 			case "nextflow":
 				nfPipeline := plumber.NewNextflowPipeline(pf)
 				nfPipeline.SetEnv("PLUMBER_PIPELINE_ASSETS", filepath.Join(pf.Path, "assets"))
 				nfPipeline.SetEnv("NEXTFLOW_CONFIG_HOME", pf.Path)
 				nfPipeline.Workdir = workdir
-				profile, _ = cmd.Flags().GetString("profile")
 				runner = Runner(&nfPipeline)
 			case "snakemake":
 				env := pyenv.Environment{
@@ -309,7 +311,6 @@ func NewRunCmd(v *viper.Viper) *cobra.Command {
 					return fmt.Errorf("failed to install pipeline: %w", err)
 				}
 				slog.Debug("pipeline environment", "env", smPipeline.Env)
-				profile, _ = cmd.Flags().GetString("profile")
 				runner = Runner(&smPipeline)
 			default:
 				return fmt.Errorf("unsupported workflow engine: %s", pf.Pipelines[0].Engine)
