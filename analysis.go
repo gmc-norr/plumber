@@ -36,14 +36,14 @@ type TimedAnalysisState struct {
 }
 
 type Analysis struct {
-	Id               uuid.UUID          `json:"id"`
-	User             string             `json:"user"`
-	Pipeline         Pipeline           `json:"pipeline"`
-	Workdir          string             `json:"workdir"`
-	State            TimedAnalysisState `json:"state"`
-	ConfigVersion    string             `json:"config_version"`
-	Profile          string             `json:"profile"`
-	EngineArguments  string             `json:"additional_arguments"`
+	Id            uuid.UUID          `json:"id"`
+	User          string             `json:"user"`
+	Pipeline      Pipeline           `json:"pipeline"`
+	Workdir       string             `json:"workdir"`
+	State         TimedAnalysisState `json:"state"`
+	ConfigVersion string             `json:"config_version"`
+	Profile       string             `json:"profile"`
+	Arguments     string             `json:"additional_arguments"`
 }
 
 func NewAnalysis() *Analysis {
@@ -86,7 +86,7 @@ func (a *Analysis) WithProfile(profile string) *Analysis {
 }
 
 func (a *Analysis) WithEngineArguments(engineArgs []string) *Analysis {
-	a.EngineArguments = strings.Join(engineArgs, " ")
+	a.Arguments = strings.Join(engineArgs, " ")
 	return a
 }
 
