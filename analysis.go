@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -35,11 +36,14 @@ type TimedAnalysisState struct {
 }
 
 type Analysis struct {
-	Id       uuid.UUID          `json:"id"`
-	User     string             `json:"user"`
-	Pipeline Pipeline           `json:"pipeline"`
-	Workdir  string             `json:"workdir"`
-	State    TimedAnalysisState `json:"state"`
+	Id            uuid.UUID          `json:"id"`
+	User          string             `json:"user"`
+	Pipeline      Pipeline           `json:"pipeline"`
+	Workdir       string             `json:"workdir"`
+	State         TimedAnalysisState `json:"state"`
+	ConfigVersion string             `json:"config_version"`
+	Profile       string             `json:"profile"`
+	Arguments     string             `json:"additional_arguments"`
 }
 
 func NewAnalysis() *Analysis {
@@ -68,6 +72,21 @@ func (a *Analysis) WithWorkdir(path string) *Analysis {
 
 func (a *Analysis) WithState(state AnalysisState) *Analysis {
 	a.State = state.WithTime(time.Now())
+	return a
+}
+
+func (a *Analysis) WithConfigVersion(configVersion string) *Analysis {
+	a.ConfigVersion = configVersion
+	return a
+}
+
+func (a *Analysis) WithProfile(profile string) *Analysis {
+	a.Profile = profile
+	return a
+}
+
+func (a *Analysis) WithEngineArguments(engineArgs []string) *Analysis {
+	a.Arguments = strings.Join(engineArgs, " ")
 	return a
 }
 
