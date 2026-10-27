@@ -6,8 +6,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"time"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -41,8 +41,8 @@ type Analysis struct {
 	Pipeline         Pipeline           `json:"pipeline"`
 	Workdir          string             `json:"workdir"`
 	State            TimedAnalysisState `json:"state"`
-	ConfigVersion    string             `json:"config_version"` 
-	Profile          string             `json:"profile"` 
+	ConfigVersion    string             `json:"config_version"`
+	Profile          string             `json:"profile"`
 	EngineArguments  string             `json:"additional_arguments"`
 }
 
