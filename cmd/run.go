@@ -101,7 +101,7 @@ func NewRunCmd(v *viper.Viper) *cobra.Command {
 				WithUser(os.Getenv("USER")).
 				WithPipeline(pipeline).
 				WithState(plumber.StatePending).
-				WithConfigVersion(configVersion).
+				WithConfigVersion(configRepo, configVersion).
 				WithProfile(profile).
 				WithEngineArguments(engineArgs)
 
