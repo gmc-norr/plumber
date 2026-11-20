@@ -304,58 +304,7 @@ func (p *SnakemakePipeline) Run(ctx context.Context, profileName string, extraAr
 		cmd.Args[i] = os.ExpandEnv(arg)
 	}
 
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return err
-	}
-
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		return err
-	}
-
-	slog.Debug("executing pipeline", "cmd", cmd.String(), "env", cmd.Env)
-	if err := cmd.Start(); err != nil {
-		return err
-	}
-
-	logTail := NewLineBuffer(10)
-
-	stdoutScanner := bufio.NewScanner(stdout)
-	go func() {
-		for stdoutScanner.Scan() {
-			t := StripAnsi(strings.TrimSpace(stdoutScanner.Text()))
-			if t == "" {
-				continue
-			}
-			logTail.mu.Lock()
-			logTail.Add(t)
-			logTail.mu.Unlock()
-			slog.Info("snakemake output", "stdout", t)
-		}
-	}()
-
-	stderrScanner := bufio.NewScanner(stderr)
-	go func() {
-		for stderrScanner.Scan() {
-			t := StripAnsi(strings.TrimSpace(stderrScanner.Text()))
-			if t == "" {
-				continue
-			}
-			logTail.mu.Lock()
-			logTail.Add(t)
-			logTail.mu.Unlock()
-			slog.Info("snakemake output", "stderr", t)
-		}
-	}()
-
-	if err := cmd.Wait(); err != nil {
-		return PipelineRunError{
-			Err: err,
-			Log: logTail.Lines,
-		}
-	}
-	return nil
+	return run(cmd, 10)
 }
 
 // Cleanup removes intermediate files from previous runs. Currently does nothing for Snakemake pipelines.
@@ -417,9 +366,8 @@ func (p *NextflowPipeline) Run(ctx context.Context, profile string, extraArgs []
 		args = append(args, "-c", profileFile.Path)
 	}
 
-	logTail := NewLineBuffer(10)
-
-	args = append(args,
+	args = append(
+		args,
 		"run",
 		p.Pipelines[0].Pipeline.Repo,
 		"-r",
@@ -459,58 +407,7 @@ func (p *NextflowPipeline) Run(ctx context.Context, profile string, extraArgs []
 		cmd.Dir = p.Workdir
 	}
 
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return err
-	}
-
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		return err
-	}
-
-	slog.Debug("running command", "cmd", cmd.String())
-	if err := cmd.Start(); err != nil {
-		return err
-	}
-
-	stdoutScanner := bufio.NewScanner(stdout)
-	go func() {
-		for stdoutScanner.Scan() {
-			t := StripAnsi(strings.TrimSpace(stdoutScanner.Text()))
-			if t == "" {
-				continue
-			}
-			logTail.mu.Lock()
-			logTail.Add(t)
-			logTail.mu.Unlock()
-			slog.Info("nextflow output", "stdout", t)
-		}
-	}()
-
-	stderrScanner := bufio.NewScanner(stderr)
-	go func() {
-		for stderrScanner.Scan() {
-			t := StripAnsi(strings.TrimSpace(stderrScanner.Text()))
-			if t == "" {
-				continue
-			}
-			logTail.mu.Lock()
-			logTail.Add(t)
-			logTail.mu.Unlock()
-			slog.Info("nextflow output", "stderr", t)
-		}
-	}()
-
-	err = cmd.Wait()
-	if err != nil {
-		return PipelineRunError{
-			Log: logTail.Lines,
-			Err: err,
-		}
-	}
-
-	return nil
+	return run(cmd, 10)
 }
 
 // Cleanup removes intermediate files from previous executions.
@@ -525,6 +422,64 @@ func (p *NextflowPipeline) Cleanup() error {
 	}
 	if err := os.RemoveAll(workPath); err != nil {
 		return fmt.Errorf("failed to delete work directory: %w", err)
+	}
+	return nil
+}
+
+// run runs a command and collects the last `n` log lines. If the execution
+// fails, a `PipelineRunError` is returned with the error that triggered the
+// failure, as well as the last `n` lines of the log.
+func run(cmd *exec.Cmd, n int) error {
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return err
+	}
+
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		return err
+	}
+
+	slog.Debug("executing command", "cmd", cmd.String(), "env", cmd.Env)
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+
+	logTail := NewLineBuffer(n)
+
+	stdoutScanner := bufio.NewScanner(stdout)
+	go func() {
+		for stdoutScanner.Scan() {
+			t := StripAnsi(strings.TrimSpace(stdoutScanner.Text()))
+			if t == "" {
+				continue
+			}
+			logTail.mu.Lock()
+			logTail.Add(t)
+			logTail.mu.Unlock()
+			slog.Info("pipeline output", "stdout", t)
+		}
+	}()
+
+	stderrScanner := bufio.NewScanner(stderr)
+	go func() {
+		for stderrScanner.Scan() {
+			t := StripAnsi(strings.TrimSpace(stderrScanner.Text()))
+			if t == "" {
+				continue
+			}
+			logTail.mu.Lock()
+			logTail.Add(t)
+			logTail.mu.Unlock()
+			slog.Info("pipeline output", "stderr", t)
+		}
+	}()
+
+	if err := cmd.Wait(); err != nil {
+		return PipelineRunError{
+			Err: err,
+			Log: logTail.Lines,
+		}
 	}
 	return nil
 }
