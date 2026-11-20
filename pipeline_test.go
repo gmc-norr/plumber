@@ -1,11 +1,15 @@
 package plumber
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
@@ -54,5 +58,54 @@ func TestNextflowCleanup(t *testing.T) {
 	}
 	if _, err := os.Stat(workPath); err == nil {
 		t.Error("expected work directory to be gone")
+	}
+}
+
+// TestRunWithLargeOutput checks that run returns if it is supposed to.
+// This could potentially be flaky since it relies on timing, but I've
+// tried to get around this by writing a marker file in the subprocess
+// and wait for this to exist before waiting for the output.
+func TestRunWithLargeOutput(t *testing.T) {
+	tmpdir := t.TempDir()
+	startedMarker := filepath.Join(tmpdir, "test_started")
+	// Have the command touch a marker file to indicate that it started, and then output 1MB of data without line breaks
+	cmd := exec.Command("sh", "-c", fmt.Sprintf("touch %q && head -c 1048576 /dev/zero", startedMarker))
+
+	done := make(chan struct{})
+	go func() {
+		if err := run(cmd, 10); err != nil {
+			t.Error(err)
+		}
+		close(done)
+	}()
+
+	completionTimeout := 2 * time.Second
+
+	// Use the deadline of the whole test suite for seeing the marker file
+	var deadline <-chan time.Time
+	if d, ok := t.Deadline(); ok {
+		deadline = time.After(time.Until(d) - completionTimeout)
+	}
+	ticker := time.NewTicker(5 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		if _, err := os.Stat(startedMarker); err == nil {
+			break
+		} else if !errors.Is(err, fs.ErrNotExist) {
+			t.Fatalf("stat marker file: %v", err)
+		}
+		select {
+		case <-ticker.C:
+		case <-deadline:
+			t.Fatal("execution never started before deadline")
+		}
+	}
+
+	select {
+	case <-done:
+		return
+	case <-time.After(completionTimeout):
+		t.Errorf("function didn't return in %s after execution started, likely deadlock", completionTimeout)
 	}
 }
