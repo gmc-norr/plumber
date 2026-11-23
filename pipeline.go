@@ -20,6 +20,10 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// MaxScanTokenSize is the maximum size of a line of output, in bytes,
+// that will be accepted when scanning logs.
+const MaxScanTokenSize = 8 * 1024 * 1024
+
 // AnsiRegexp is a regular expression matching ANSI escape codes,
 // taken from the package stripansi: https://github.com/acarl005/stripansi
 var AnsiRegexp = regexp.MustCompile("[\u001B\u009B][[\\]()#;?]*(?:(?:(?:[a-zA-Z\\d]*(?:;[a-zA-Z\\d]*)*)?\u0007)|(?:(?:\\d{1,4}(?:;\\d{0,4})*)?[\\dA-PRZcf-ntqry=><~]))")
@@ -305,7 +309,7 @@ func (p *SnakemakePipeline) Run(ctx context.Context, profileName string, extraAr
 		cmd.Args[i] = os.ExpandEnv(arg)
 	}
 
-	return run(cmd, 10)
+	return run(cmd, 10, MaxScanTokenSize)
 }
 
 // Cleanup removes intermediate files from previous runs. Currently does nothing for Snakemake pipelines.
@@ -410,7 +414,7 @@ func (p *NextflowPipeline) Run(ctx context.Context, profile string, extraArgs []
 		cmd.Dir = p.Workdir
 	}
 
-	return run(cmd, 10)
+	return run(cmd, 10, MaxScanTokenSize)
 }
 
 // Cleanup removes intermediate files from previous executions.
@@ -432,7 +436,12 @@ func (p *NextflowPipeline) Cleanup() error {
 // run runs a command and collects the last `n` log lines. If the execution
 // fails, a `PipelineRunError` is returned with the error that triggered the
 // failure, as well as the last `n` lines of the log.
-func run(cmd *exec.Cmd, n int) error {
+//
+// `maxScanTokenSize` determines the maximum size of the buffer when reading
+// output from the pipline. Any longer and an error will be returned and the
+// pipeline process will be killed. Any value less than `bufio.MaxScanTokenSize`
+// is effectively ignored.
+func run(cmd *exec.Cmd, n int, maxScanTokenSize int) error {
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		return err
@@ -450,8 +459,8 @@ func run(cmd *exec.Cmd, n int) error {
 
 	logTail := NewLineBuffer(n)
 
-	stdoutErr := scanLog("stdout", cmd, &logTail, stdout)
-	stderrErr := scanLog("stderr", cmd, &logTail, stderr)
+	stdoutErr := scanLog("stdout", cmd, &logTail, stdout, maxScanTokenSize)
+	stderrErr := scanLog("stderr", cmd, &logTail, stderr, maxScanTokenSize)
 
 	var scannerErrors []error
 	for stdoutErr != nil && stderrErr != nil {
@@ -478,11 +487,12 @@ func run(cmd *exec.Cmd, n int) error {
 	return nil
 }
 
-func scanLog(name string, cmd *exec.Cmd, logTail *LineBuffer, r io.Reader) chan error {
+func scanLog(name string, cmd *exec.Cmd, logTail *LineBuffer, r io.Reader, maxScanTokenSize int) chan error {
 	errc := make(chan error, 1)
 	go func() {
 		defer close(errc)
 		stderrScanner := bufio.NewScanner(r)
+		stderrScanner.Buffer(make([]byte, 0, bufio.MaxScanTokenSize), maxScanTokenSize)
 		for stderrScanner.Scan() {
 			t := StripAnsi(strings.TrimSpace(stderrScanner.Text()))
 			if t == "" {

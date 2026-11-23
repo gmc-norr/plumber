@@ -110,7 +110,7 @@ func TestRunWithLargeOutput(t *testing.T) {
 
 			done := make(chan struct{})
 			go func() {
-				err := run(cmd, 10)
+				err := run(cmd, 10, 0)
 				if err != nil != c.shouldError {
 					t.Errorf("should error: %t, error: %v", c.shouldError, err)
 				} else if err != nil && c.shouldError {
