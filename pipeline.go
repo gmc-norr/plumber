@@ -228,9 +228,9 @@ func (p *SnakemakePipeline) Install() error {
 		slog.Debug("install", "output", outScanner.Text())
 	}
 	if err := outScanner.Err(); err != nil {
-		killErr := cmd.Process.Kill()
-		waitErr := cmd.Wait()
-		return fmt.Errorf("install output scanner: %w", errors.Join(err, killErr, waitErr))
+		_ = cmd.Process.Kill()
+		_ = cmd.Wait()
+		return fmt.Errorf("install output scanner: %w", err)
 	}
 
 	if err := cmd.Wait(); err != nil {
@@ -481,7 +481,8 @@ func run(cmd *exec.Cmd, n int, maxScanTokenSize int) error {
 	}
 
 	if err := errors.Join(scannerErrors...); err != nil {
-		return errors.Join(err, cmd.Wait())
+		_ = cmd.Wait()
+		return err
 	}
 
 	if err := cmd.Wait(); err != nil {
