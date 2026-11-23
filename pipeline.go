@@ -223,8 +223,14 @@ func (p *SnakemakePipeline) Install() error {
 		return err
 	}
 	outScanner := bufio.NewScanner(io.MultiReader(stdout, stderr))
+	outScanner.Buffer(make([]byte, 0, bufio.MaxScanTokenSize), MaxScanTokenSize)
 	for outScanner.Scan() {
 		slog.Debug("install", "output", outScanner.Text())
+	}
+	if err := outScanner.Err(); err != nil {
+		killErr := cmd.Process.Kill()
+		waitErr := cmd.Wait()
+		return fmt.Errorf("install output scanner: %w", errors.Join(err, killErr, waitErr))
 	}
 
 	if err := cmd.Wait(); err != nil {
