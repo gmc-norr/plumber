@@ -348,6 +348,8 @@ func NewLineBuffer(capacity int) LineBuffer {
 }
 
 func (l *LineBuffer) Add(line string) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
 	if len(l.Lines) == l.Capacity {
 		l.Lines = l.Lines[1:]
 	}
@@ -454,9 +456,7 @@ func run(cmd *exec.Cmd, n int) error {
 			if t == "" {
 				continue
 			}
-			logTail.mu.Lock()
 			logTail.Add(t)
-			logTail.mu.Unlock()
 			slog.Info("pipeline output", "stdout", t)
 		}
 	}()
@@ -468,9 +468,7 @@ func run(cmd *exec.Cmd, n int) error {
 			if t == "" {
 				continue
 			}
-			logTail.mu.Lock()
 			logTail.Add(t)
-			logTail.mu.Unlock()
 			slog.Info("pipeline output", "stderr", t)
 		}
 	}()
