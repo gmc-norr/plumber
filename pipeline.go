@@ -509,7 +509,6 @@ func scanLog(name string, cmd *exec.Cmd, logTail *LineBuffer, r io.Reader, maxSc
 			slog.Info("pipeline output", "stderr", t)
 		}
 		if err := stderrScanner.Err(); err != nil {
-			slog.Error("stderr scanner", "error", err)
 			errc <- fmt.Errorf("%s scanner: %w", name, err)
 			_ = cmd.Process.Kill()
 		}
