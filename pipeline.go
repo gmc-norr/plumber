@@ -450,51 +450,18 @@ func run(cmd *exec.Cmd, n int) error {
 
 	logTail := NewLineBuffer(n)
 
+	stdoutErr := scanLog("stdout", cmd, &logTail, stdout)
+	stderrErr := scanLog("stderr", cmd, &logTail, stderr)
+
 	var scannerErrors []error
-	stdoutScanner := bufio.NewScanner(stdout)
-	stdoutDone := make(chan struct{})
-	go func() {
-		for stdoutScanner.Scan() {
-			t := StripAnsi(strings.TrimSpace(stdoutScanner.Text()))
-			if t == "" {
-				continue
-			}
-			logTail.Add(t)
-			slog.Info("pipeline output", "stdout", t)
-		}
-		if err := stdoutScanner.Err(); err != nil {
-			slog.Error("stdout scanner", "error", err)
-			scannerErrors = append(scannerErrors, fmt.Errorf("stdout scanner: %w", err))
-			_ = cmd.Process.Kill()
-		}
-		close(stdoutDone)
-	}()
-
-	stderrScanner := bufio.NewScanner(stderr)
-	stderrDone := make(chan struct{})
-	go func() {
-		for stderrScanner.Scan() {
-			t := StripAnsi(strings.TrimSpace(stderrScanner.Text()))
-			if t == "" {
-				continue
-			}
-			logTail.Add(t)
-			slog.Info("pipeline output", "stderr", t)
-		}
-		if err := stderrScanner.Err(); err != nil {
-			slog.Error("stderr scanner", "error", err)
-			scannerErrors = append(scannerErrors, fmt.Errorf("stderr scanner: %w", err))
-			_ = cmd.Process.Kill()
-		}
-		close(stderrDone)
-	}()
-
-	for stdoutDone != nil && stderrDone != nil {
+	for stdoutErr != nil && stderrErr != nil {
 		select {
-		case <-stdoutDone:
-			stdoutDone = nil
-		case <-stderrDone:
-			stderrDone = nil
+		case err := <-stdoutErr:
+			scannerErrors = append(scannerErrors, err)
+			stdoutErr = nil
+		case err := <-stderrErr:
+			scannerErrors = append(scannerErrors, err)
+			stderrErr = nil
 		}
 	}
 
@@ -509,4 +476,26 @@ func run(cmd *exec.Cmd, n int) error {
 		}
 	}
 	return nil
+}
+
+func scanLog(name string, cmd *exec.Cmd, logTail *LineBuffer, r io.Reader) chan error {
+	errc := make(chan error, 1)
+	go func() {
+		defer close(errc)
+		stderrScanner := bufio.NewScanner(r)
+		for stderrScanner.Scan() {
+			t := StripAnsi(strings.TrimSpace(stderrScanner.Text()))
+			if t == "" {
+				continue
+			}
+			logTail.Add(t)
+			slog.Info("pipeline output", "stderr", t)
+		}
+		if err := stderrScanner.Err(); err != nil {
+			slog.Error("stderr scanner", "error", err)
+			errc <- fmt.Errorf("%s scanner: %w", name, err)
+			_ = cmd.Process.Kill()
+		}
+	}()
+	return errc
 }
