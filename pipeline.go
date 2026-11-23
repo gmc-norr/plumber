@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -449,7 +450,9 @@ func run(cmd *exec.Cmd, n int) error {
 
 	logTail := NewLineBuffer(n)
 
+	var scannerErrors []error
 	stdoutScanner := bufio.NewScanner(stdout)
+	stdoutDone := make(chan struct{})
 	go func() {
 		for stdoutScanner.Scan() {
 			t := StripAnsi(strings.TrimSpace(stdoutScanner.Text()))
@@ -459,9 +462,16 @@ func run(cmd *exec.Cmd, n int) error {
 			logTail.Add(t)
 			slog.Info("pipeline output", "stdout", t)
 		}
+		if err := stdoutScanner.Err(); err != nil {
+			slog.Error("stdout scanner", "error", err)
+			scannerErrors = append(scannerErrors, fmt.Errorf("stdout scanner: %w", err))
+			_ = cmd.Process.Kill()
+		}
+		close(stdoutDone)
 	}()
 
 	stderrScanner := bufio.NewScanner(stderr)
+	stderrDone := make(chan struct{})
 	go func() {
 		for stderrScanner.Scan() {
 			t := StripAnsi(strings.TrimSpace(stderrScanner.Text()))
@@ -471,7 +481,26 @@ func run(cmd *exec.Cmd, n int) error {
 			logTail.Add(t)
 			slog.Info("pipeline output", "stderr", t)
 		}
+		if err := stderrScanner.Err(); err != nil {
+			slog.Error("stderr scanner", "error", err)
+			scannerErrors = append(scannerErrors, fmt.Errorf("stderr scanner: %w", err))
+			_ = cmd.Process.Kill()
+		}
+		close(stderrDone)
 	}()
+
+	for stdoutDone != nil && stderrDone != nil {
+		select {
+		case <-stdoutDone:
+			stdoutDone = nil
+		case <-stderrDone:
+			stderrDone = nil
+		}
+	}
+
+	if err := errors.Join(scannerErrors...); err != nil {
+		return errors.Join(err, cmd.Wait())
+	}
 
 	if err := cmd.Wait(); err != nil {
 		return PipelineRunError{
