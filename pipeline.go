@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -18,6 +19,10 @@ import (
 
 	"gopkg.in/yaml.v3"
 )
+
+// MaxScanTokenSize is the maximum size of a line of output, in bytes,
+// that will be accepted when scanning logs.
+const MaxScanTokenSize = 8 * 1024 * 1024
 
 // AnsiRegexp is a regular expression matching ANSI escape codes,
 // taken from the package stripansi: https://github.com/acarl005/stripansi
@@ -218,8 +223,14 @@ func (p *SnakemakePipeline) Install() error {
 		return err
 	}
 	outScanner := bufio.NewScanner(io.MultiReader(stdout, stderr))
+	outScanner.Buffer(make([]byte, 0, bufio.MaxScanTokenSize), MaxScanTokenSize)
 	for outScanner.Scan() {
 		slog.Debug("install", "output", outScanner.Text())
+	}
+	if err := outScanner.Err(); err != nil {
+		_ = cmd.Process.Kill()
+		_ = cmd.Wait()
+		return fmt.Errorf("install output scanner: %w", err)
 	}
 
 	if err := cmd.Wait(); err != nil {
@@ -304,58 +315,7 @@ func (p *SnakemakePipeline) Run(ctx context.Context, profileName string, extraAr
 		cmd.Args[i] = os.ExpandEnv(arg)
 	}
 
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return err
-	}
-
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		return err
-	}
-
-	slog.Debug("executing pipeline", "cmd", cmd.String(), "env", cmd.Env)
-	if err := cmd.Start(); err != nil {
-		return err
-	}
-
-	logTail := NewLineBuffer(10)
-
-	stdoutScanner := bufio.NewScanner(stdout)
-	go func() {
-		for stdoutScanner.Scan() {
-			t := StripAnsi(strings.TrimSpace(stdoutScanner.Text()))
-			if t == "" {
-				continue
-			}
-			logTail.mu.Lock()
-			logTail.Add(t)
-			logTail.mu.Unlock()
-			slog.Info("snakemake output", "stdout", t)
-		}
-	}()
-
-	stderrScanner := bufio.NewScanner(stderr)
-	go func() {
-		for stderrScanner.Scan() {
-			t := StripAnsi(strings.TrimSpace(stderrScanner.Text()))
-			if t == "" {
-				continue
-			}
-			logTail.mu.Lock()
-			logTail.Add(t)
-			logTail.mu.Unlock()
-			slog.Info("snakemake output", "stderr", t)
-		}
-	}()
-
-	if err := cmd.Wait(); err != nil {
-		return PipelineRunError{
-			Err: err,
-			Log: logTail.Lines,
-		}
-	}
-	return nil
+	return run(cmd, 10, MaxScanTokenSize)
 }
 
 // Cleanup removes intermediate files from previous runs. Currently does nothing for Snakemake pipelines.
@@ -399,6 +359,8 @@ func NewLineBuffer(capacity int) LineBuffer {
 }
 
 func (l *LineBuffer) Add(line string) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
 	if len(l.Lines) == l.Capacity {
 		l.Lines = l.Lines[1:]
 	}
@@ -417,9 +379,8 @@ func (p *NextflowPipeline) Run(ctx context.Context, profile string, extraArgs []
 		args = append(args, "-c", profileFile.Path)
 	}
 
-	logTail := NewLineBuffer(10)
-
-	args = append(args,
+	args = append(
+		args,
 		"run",
 		p.Pipelines[0].Pipeline.Repo,
 		"-r",
@@ -459,58 +420,7 @@ func (p *NextflowPipeline) Run(ctx context.Context, profile string, extraArgs []
 		cmd.Dir = p.Workdir
 	}
 
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return err
-	}
-
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		return err
-	}
-
-	slog.Debug("running command", "cmd", cmd.String())
-	if err := cmd.Start(); err != nil {
-		return err
-	}
-
-	stdoutScanner := bufio.NewScanner(stdout)
-	go func() {
-		for stdoutScanner.Scan() {
-			t := StripAnsi(strings.TrimSpace(stdoutScanner.Text()))
-			if t == "" {
-				continue
-			}
-			logTail.mu.Lock()
-			logTail.Add(t)
-			logTail.mu.Unlock()
-			slog.Info("nextflow output", "stdout", t)
-		}
-	}()
-
-	stderrScanner := bufio.NewScanner(stderr)
-	go func() {
-		for stderrScanner.Scan() {
-			t := StripAnsi(strings.TrimSpace(stderrScanner.Text()))
-			if t == "" {
-				continue
-			}
-			logTail.mu.Lock()
-			logTail.Add(t)
-			logTail.mu.Unlock()
-			slog.Info("nextflow output", "stderr", t)
-		}
-	}()
-
-	err = cmd.Wait()
-	if err != nil {
-		return PipelineRunError{
-			Log: logTail.Lines,
-			Err: err,
-		}
-	}
-
-	return nil
+	return run(cmd, 10, MaxScanTokenSize)
 }
 
 // Cleanup removes intermediate files from previous executions.
@@ -527,4 +437,81 @@ func (p *NextflowPipeline) Cleanup() error {
 		return fmt.Errorf("failed to delete work directory: %w", err)
 	}
 	return nil
+}
+
+// run runs a command and collects the last `n` log lines. If the execution
+// fails, a `PipelineRunError` is returned with the error that triggered the
+// failure, as well as the last `n` lines of the log.
+//
+// `maxScanTokenSize` determines the maximum size of the buffer when reading
+// output from the pipline. Any longer and an error will be returned and the
+// pipeline process will be killed. Any value less than `bufio.MaxScanTokenSize`
+// is effectively ignored.
+func run(cmd *exec.Cmd, n int, maxScanTokenSize int) error {
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return err
+	}
+
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		return err
+	}
+
+	slog.Debug("executing command", "cmd", cmd.String(), "env", cmd.Env)
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+
+	logTail := NewLineBuffer(n)
+
+	stdoutErr := scanLog("stdout", cmd, &logTail, stdout, maxScanTokenSize)
+	stderrErr := scanLog("stderr", cmd, &logTail, stderr, maxScanTokenSize)
+
+	var scannerErrors []error
+	for stdoutErr != nil && stderrErr != nil {
+		select {
+		case err := <-stdoutErr:
+			scannerErrors = append(scannerErrors, err)
+			stdoutErr = nil
+		case err := <-stderrErr:
+			scannerErrors = append(scannerErrors, err)
+			stderrErr = nil
+		}
+	}
+
+	if err := errors.Join(scannerErrors...); err != nil {
+		_ = cmd.Wait()
+		return err
+	}
+
+	if err := cmd.Wait(); err != nil {
+		return PipelineRunError{
+			Err: err,
+			Log: logTail.Lines,
+		}
+	}
+	return nil
+}
+
+func scanLog(name string, cmd *exec.Cmd, logTail *LineBuffer, r io.Reader, maxScanTokenSize int) chan error {
+	errc := make(chan error, 1)
+	go func() {
+		defer close(errc)
+		stderrScanner := bufio.NewScanner(r)
+		stderrScanner.Buffer(make([]byte, 0, bufio.MaxScanTokenSize), maxScanTokenSize)
+		for stderrScanner.Scan() {
+			t := StripAnsi(strings.TrimSpace(stderrScanner.Text()))
+			if t == "" {
+				continue
+			}
+			logTail.Add(t)
+			slog.Info("pipeline output", "stderr", t)
+		}
+		if err := stderrScanner.Err(); err != nil {
+			errc <- fmt.Errorf("%s scanner: %w", name, err)
+			_ = cmd.Process.Kill()
+		}
+	}()
+	return errc
 }
