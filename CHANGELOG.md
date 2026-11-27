@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.1.0](https://github.com/gmc-norr/plumber/compare/v1.0.0...v1.1.0) (2026-11-27)
+
+
+### Features
+
+* expand analysis file ([#71](https://github.com/gmc-norr/plumber/issues/71)) ([aff8de0](https://github.com/gmc-norr/plumber/commit/aff8de0109efae547ce673d9cb607b25f11737a0))
+
+
+### Bug Fixes
+
+* deadlock on long lines of pipeline output ([#73](https://github.com/gmc-norr/plumber/issues/73)) ([47da29f](https://github.com/gmc-norr/plumber/commit/47da29faaba50137060c8552cb58572d603b168e))
+
 ## [1.0.0](https://github.com/gmc-norr/plumber/compare/v0.2.0...v1.0.0) (2026-05-03)
 
 
